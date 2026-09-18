@@ -47,10 +47,10 @@
   .beetleWrap{
     position:absolute; bottom:14%;
     width:34%; max-width:220px;
-    transition:transform .12s ease-out;
+    transition:left .3s ease-out, right .3s ease-out, transform .12s ease-out;
   }
-  #playerWrap{ left:8%; }
-  #enemyWrap{ right:8%; }
+  #playerWrap{ left:18%; }
+  #enemyWrap{ right:18%; }
   #enemyWrap svg{ transform:scaleX(-1); }
 
   .beetleWrap svg{ width:100%; height:auto; display:block; filter:drop-shadow(0 6px 4px rgba(0,0,0,.3)); }
@@ -68,17 +68,18 @@
   .flyOffRight{ transform:translate(90vw,-40px) rotate(120deg) !important; transition:transform .8s ease-in; opacity:0; }
   .flyOffLeft{ transform:translate(-90vw,-40px) rotate(-120deg) !important; transition:transform .8s ease-in; opacity:0; }
 
-  /* HP hearts */
-  .hp{
-    position:absolute; top:4%;
-    display:flex; gap:6px;
-    font-size:min(7vw, 34px);
-    filter:drop-shadow(0 2px 2px rgba(0,0,0,.3));
+  /* impact spark shown where the beetles collide */
+  .clashSpark{
+    position:absolute; left:50%; bottom:24%;
+    font-size:min(11vw,54px);
+    animation:clashPop .3s ease-out forwards;
+    pointer-events:none; z-index:12;
   }
-  #playerHP{ left:4%; }
-  #enemyHP{ right:4%; }
-  .heart{ transition:transform .2s; }
-  .heart.gone{ transform:scale(0); opacity:0; }
+  @keyframes clashPop{
+    0%{ transform:translate(-50%,0) scale(.3) rotate(0deg); opacity:0; }
+    40%{ transform:translate(-50%,0) scale(1.25) rotate(-8deg); opacity:1; }
+    100%{ transform:translate(-50%,0) scale(.9) rotate(6deg); opacity:0; }
+  }
 
   #screenShake{ position:fixed; inset:0; }
   .shakeAll{ animation:shakeAll .25s; }
@@ -176,9 +177,6 @@
   <button id="changeBtn" type="button" aria-label="えらびなおす">🔁</button>
 
   <div id="arena">
-    <div id="playerHP" class="hp"></div>
-    <div id="enemyHP" class="hp"></div>
-
     <div id="playerWrap" class="beetleWrap"></div>
     <div id="enemyWrap" class="beetleWrap"></div>
   </div>
@@ -354,13 +352,13 @@
   }
 
   // ---------- game state ----------
-  var MAX_HP = 5;
+  var WIN_COUNT = 10;
+  var BASE_LEFT = 18, BASE_RIGHT = 18, PUSH_STEP = 3; // beetles start overlapping slightly (in contact)
   var playerHP, enemyHP, busy, gameOver, enemyTimer;
   var selectedPlayerType = null;
   var playerWrap = document.getElementById("playerWrap");
   var enemyWrap = document.getElementById("enemyWrap");
-  var playerHPEl = document.getElementById("playerHP");
-  var enemyHPEl = document.getElementById("enemyHP");
+  var arena = document.getElementById("arena");
   var hint = document.getElementById("hint");
   var banner = document.getElementById("banner");
   var bannerEmoji = document.getElementById("bannerEmoji");
@@ -370,35 +368,34 @@
   var selectScreen = document.getElementById("selectScreen");
   var selectGrid = document.getElementById("selectGrid");
 
-  function heartsHtml(n){
-    var s = "";
-    for(var i=0;i<n;i++){ s += '<span class="heart">❤️</span>'; }
-    return s;
+  // moves the beetles along the ring based on who has pushed harder so far,
+  // keeping them in contact instead of showing a numeric HP readout
+  function updatePositions(){
+    var enemyPushed = WIN_COUNT - enemyHP;
+    var playerPushed = WIN_COUNT - playerHP;
+    var delta = (enemyPushed - playerPushed) * PUSH_STEP;
+    playerWrap.style.left = (BASE_LEFT + delta) + "%";
+    enemyWrap.style.right = (BASE_RIGHT - delta) + "%";
   }
 
-  function renderHP(){
-    playerHPEl.innerHTML = heartsHtml(MAX_HP);
-    enemyHPEl.innerHTML = heartsHtml(MAX_HP);
-    updateHeartVisual(playerHPEl, playerHP);
-    updateHeartVisual(enemyHPEl, enemyHP);
-  }
-  function updateHeartVisual(el, hp){
-    var hearts = el.querySelectorAll(".heart");
-    hearts.forEach(function(h, i){
-      h.classList.toggle("gone", i >= hp);
-    });
+  function spawnClash(){
+    var spark = document.createElement("div");
+    spark.className = "clashSpark";
+    spark.textContent = "💥";
+    arena.appendChild(spark);
+    setTimeout(function(){ spark.remove(); }, 300);
   }
 
   function setupRound(){
-    playerHP = MAX_HP;
-    enemyHP = MAX_HP;
+    playerHP = WIN_COUNT;
+    enemyHP = WIN_COUNT;
     busy = false;
     gameOver = false;
     playerWrap.innerHTML = svgFor(selectedPlayerType);
     enemyWrap.innerHTML = svgFor(randomEnemyType());
     playerWrap.className = "beetleWrap";
     enemyWrap.className = "beetleWrap";
-    renderHP();
+    updatePositions();
     banner.style.display = "none";
     startEnemyTimer();
   }
@@ -455,13 +452,14 @@
     busy = true;
     hint.style.display = "none";
     hitSound();
+    spawnClash();
     playerWrap.classList.add("lungeRight");
     enemyWrap.classList.add("recoilLeft","hitShake");
     shakeScreen();
 
     setTimeout(function(){
       enemyHP = Math.max(0, enemyHP-1);
-      updateHeartVisual(enemyHPEl, enemyHP);
+      updatePositions();
       playerWrap.classList.remove("lungeRight");
       enemyWrap.classList.remove("recoilLeft","hitShake");
 
@@ -477,13 +475,14 @@
     if(busy || gameOver) return;
     busy = true;
     hitSound();
+    spawnClash();
     enemyWrap.classList.add("lungeLeft");
     playerWrap.classList.add("recoilRight","hitShake");
     shakeScreen();
 
     setTimeout(function(){
       playerHP = Math.max(0, playerHP-1);
-      updateHeartVisual(playerHPEl, playerHP);
+      updatePositions();
       enemyWrap.classList.remove("lungeLeft");
       playerWrap.classList.remove("recoilRight","hitShake");
 
