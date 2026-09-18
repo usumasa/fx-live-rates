@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>むしずもう！</title>
+<style>
+  :root{
+    --sky-top:#8fd3ff;
+    --sky-bottom:#d7f5c9;
+  }
+  html,body{
+    margin:0; padding:0; width:100%; height:100%;
+    overflow:hidden;
+    touch-action:none;
+    -webkit-user-select:none; user-select:none;
+    -webkit-tap-highlight-color:transparent;
+    font-family:"Hiragino Maru Gothic ProN","Rounded Mplus 1c",system-ui,sans-serif;
+    background:linear-gradient(var(--sky-top), var(--sky-bottom));
+  }
+  #game{
+    position:fixed; inset:0;
+    display:flex; align-items:flex-end; justify-content:center;
+    cursor:pointer;
+  }
+  /* clouds */
+  .cloud{
+    position:absolute; top:8%; width:120px; height:40px;
+    background:#fff; border-radius:50px;
+    box-shadow:20px 10px 0 -6px #fff, -20px 6px 0 -8px #fff;
+    opacity:.9;
+  }
+  .cloud.c1{left:8%; top:10%; transform:scale(1.1);}
+  .cloud.c2{left:60%; top:16%; transform:scale(.8);}
+  .cloud.c3{left:35%; top:6%; transform:scale(.6);}
+
+  /* arena */
+  #arena{
+    position:absolute; bottom:6%; left:50%; transform:translateX(-50%);
+    width:min(92vw, 640px); height:min(46vw, 320px);
+    background:radial-gradient(ellipse at center, #d9a066 0%, #b97a3d 60%, #8a5a2b 100%);
+    border-radius:50%;
+    box-shadow:0 18px 0 rgba(0,0,0,.15), inset 0 0 30px rgba(0,0,0,.25);
+    border:10px solid #7a4a24;
+  }
+
+  .beetleWrap{
+    position:absolute; bottom:14%;
+    width:34%; max-width:220px;
+    transition:transform .12s ease-out;
+  }
+  #playerWrap{ left:8%; }
+  #enemyWrap{ right:8%; }
+  #enemyWrap svg{ transform:scaleX(-1); }
+
+  .beetleWrap svg{ width:100%; height:auto; display:block; filter:drop-shadow(0 6px 4px rgba(0,0,0,.3)); }
+
+  .hitShake{ animation:hitShake .3s; }
+  @keyframes hitShake{
+    0%,100%{ transform:translateX(0) rotate(0); }
+    25%{ transform:translateX(-6px) rotate(-4deg); }
+    75%{ transform:translateX(6px) rotate(4deg); }
+  }
+  .lungeRight{ transform:translateX(18%); }
+  .lungeLeft{ transform:translateX(-18%); }
+  .recoilRight{ transform:translateX(10%) rotate(6deg); }
+  .recoilLeft{ transform:translateX(-10%) rotate(-6deg); }
+  .flyOffRight{ transform:translate(90vw,-40px) rotate(120deg) !important; transition:transform .8s ease-in; opacity:0; }
+  .flyOffLeft{ transform:translate(-90vw,-40px) rotate(-120deg) !important; transition:transform .8s ease-in; opacity:0; }
+
+  /* HP hearts */
+  .hp{
+    position:absolute; top:4%;
+    display:flex; gap:6px;
+    font-size:min(7vw, 34px);
+    filter:drop-shadow(0 2px 2px rgba(0,0,0,.3));
+  }
+  #playerHP{ left:4%; }
+  #enemyHP{ right:4%; }
+  .heart{ transition:transform .2s; }
+  .heart.gone{ transform:scale(0); opacity:0; }
+
+  #screenShake{ position:fixed; inset:0; }
+  .shakeAll{ animation:shakeAll .25s; }
+  @keyframes shakeAll{
+    0%,100%{ transform:translate(0,0); }
+    25%{ transform:translate(-4px,2px); }
+    75%{ transform:translate(4px,-2px); }
+  }
+
+  /* tap hint */
+  #hint{
+    position:absolute; left:50%; bottom:2%; transform:translateX(-50%);
+    font-size:min(6vw,26px); color:#3a2a1a; font-weight:bold;
+    background:rgba(255,255,255,.85); padding:8px 18px; border-radius:24px;
+    animation:bounce 1s infinite;
+    pointer-events:none;
+  }
+  @keyframes bounce{ 0%,100%{transform:translateX(-50%) translateY(0);} 50%{transform:translateX(-50%) translateY(-10px);} }
+
+  /* win banner */
+  #banner{
+    position:fixed; inset:0; display:none;
+    align-items:center; justify-content:center; flex-direction:column;
+    background:rgba(0,0,0,.25);
+    z-index:20;
+  }
+  #banner .card{
+    background:#fff8e6; border:8px solid #ffb703;
+    border-radius:32px; padding:24px 40px;
+    text-align:center;
+    box-shadow:0 12px 0 rgba(0,0,0,.2);
+    animation:pop .4s ease-out;
+  }
+  @keyframes pop{ 0%{transform:scale(.3); opacity:0;} 70%{transform:scale(1.15);} 100%{transform:scale(1); opacity:1;} }
+  #banner .emoji{ font-size:min(20vw,120px); }
+  #banner .text{ font-size:min(9vw,48px); font-weight:900; color:#e85d04; margin-top:4px; }
+
+  .confetti{
+    position:fixed; top:-20px; width:14px; height:14px; border-radius:3px;
+    z-index:19; animation:fall linear forwards;
+  }
+  @keyframes fall{
+    to{ transform:translateY(110vh) rotate(360deg); opacity:.9; }
+  }
+</style>
+</head>
+<body>
+<div id="game">
+  <div class="cloud c1"></div>
+  <div class="cloud c2"></div>
+  <div class="cloud c3"></div>
+
+  <div id="arena">
+    <div id="playerHP" class="hp"></div>
+    <div id="enemyHP" class="hp"></div>
+
+    <div id="playerWrap" class="beetleWrap"></div>
+    <div id="enemyWrap" class="beetleWrap"></div>
+  </div>
+
+  <div id="hint">👆 タップ！</div>
+</div>
+
+<div id="banner">
+  <div class="card">
+    <div class="emoji" id="bannerEmoji">🏆</div>
+    <div class="text" id="bannerText">かった！</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- SVG beetle templates ----------
+  function kabutoSvg(color, hornColor){
+    return `<svg viewBox="0 0 200 130" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="70" cy="95" rx="14" ry="5" fill="rgba(0,0,0,.2)"/>
+      <!-- legs -->
+      <g stroke="#3a2410" stroke-width="5" stroke-linecap="round">
+        <line x1="70" y1="90" x2="40" y2="115"/>
+        <line x1="90" y1="95" x2="70" y2="122"/>
+        <line x1="110" y1="95" x2="110" y2="122"/>
+        <line x1="130" y1="90" x2="150" y2="112"/>
+      </g>
+      <!-- body -->
+      <ellipse cx="100" cy="80" rx="62" ry="38" fill="${color}"/>
+      <ellipse cx="100" cy="70" rx="62" ry="30" fill="rgba(255,255,255,.18)"/>
+      <!-- wing split -->
+      <line x1="100" y1="45" x2="100" y2="115" stroke="rgba(0,0,0,.25)" stroke-width="3"/>
+      <!-- head -->
+      <circle cx="150" cy="70" r="24" fill="${color}"/>
+      <!-- horn -->
+      <path d="M150 55 C185 45, 200 20, 195 8 C185 22, 168 34, 148 44 Z" fill="${hornColor}"/>
+      <path d="M150 60 C175 55, 185 40, 183 32 C175 42, 163 50, 148 54 Z" fill="${hornColor}"/>
+      <!-- eyes -->
+      <circle cx="160" cy="66" r="4" fill="#1a1a1a"/>
+      <circle cx="161" cy="65" r="1.4" fill="#fff"/>
+    </svg>`;
+  }
+
+  function kuwagataSvg(color){
+    return `<svg viewBox="0 0 200 130" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="70" cy="95" rx="14" ry="5" fill="rgba(0,0,0,.2)"/>
+      <g stroke="#000" stroke-width="5" stroke-linecap="round">
+        <line x1="70" y1="90" x2="40" y2="115"/>
+        <line x1="90" y1="95" x2="70" y2="122"/>
+        <line x1="110" y1="95" x2="110" y2="122"/>
+        <line x1="130" y1="90" x2="150" y2="112"/>
+      </g>
+      <ellipse cx="100" cy="80" rx="62" ry="38" fill="${color}"/>
+      <ellipse cx="100" cy="70" rx="62" ry="30" fill="rgba(255,255,255,.12)"/>
+      <line x1="100" y1="45" x2="100" y2="115" stroke="rgba(0,0,0,.3)" stroke-width="3"/>
+      <circle cx="148" cy="72" r="20" fill="${color}"/>
+      <!-- pincers -->
+      <path d="M160 62 C195 50, 205 55, 198 68 C188 62, 172 66, 160 72 Z" fill="#1c1c1c"/>
+      <path d="M160 82 C195 94, 205 89, 198 76 C188 82, 172 78, 160 72 Z" fill="#1c1c1c"/>
+      <circle cx="156" cy="66" r="3.6" fill="#1a1a1a"/>
+      <circle cx="157" cy="65" r="1.2" fill="#fff"/>
+    </svg>`;
+  }
+
+  var TYPES = [
+    { make:kabutoSvg,   args:["#8a4b2b","#5c3416"] },
+    { make:kabutoSvg,   args:["#b5651d","#7a4212"] },
+    { make:kuwagataSvg, args:["#2b2b2b"] },
+    { make:kuwagataSvg, args:["#3c2f2f"] }
+  ];
+
+  function randomType(){ return TYPES[Math.floor(Math.random()*TYPES.length)]; }
+  function svgFor(t){ return t.make.apply(null, t.args); }
+
+  // ---------- audio (no external files) ----------
+  var actx = null;
+  function ctx(){
+    if(!actx){ actx = new (window.AudioContext||window.webkitAudioContext)(); }
+    return actx;
+  }
+  function beep(freq, dur, type, vol){
+    try{
+      var ac = ctx();
+      var o = ac.createOscillator();
+      var g = ac.createGain();
+      o.type = type||"square";
+      o.frequency.value = freq;
+      g.gain.value = vol||0.15;
+      o.connect(g); g.connect(ac.destination);
+      var now = ac.currentTime;
+      g.gain.setValueAtTime(g.gain.value, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now+dur);
+      o.start(now);
+      o.stop(now+dur);
+    }catch(e){}
+  }
+  function hitSound(){ beep(180,0.12,"square",0.2); }
+  function winSound(){
+    [523,659,784,1047].forEach(function(f,i){
+      setTimeout(function(){ beep(f,0.25,"triangle",0.18); }, i*140);
+    });
+  }
+
+  // ---------- game state ----------
+  var MAX_HP = 5;
+  var playerHP, enemyHP, busy, gameOver, enemyTimer;
+  var playerWrap = document.getElementById("playerWrap");
+  var enemyWrap = document.getElementById("enemyWrap");
+  var playerHPEl = document.getElementById("playerHP");
+  var enemyHPEl = document.getElementById("enemyHP");
+  var hint = document.getElementById("hint");
+  var banner = document.getElementById("banner");
+  var bannerEmoji = document.getElementById("bannerEmoji");
+  var bannerText = document.getElementById("bannerText");
+  var game = document.getElementById("game");
+
+  function heartsHtml(n){
+    var s = "";
+    for(var i=0;i<n;i++){ s += '<span class="heart">❤️</span>'; }
+    return s;
+  }
+
+  function renderHP(){
+    playerHPEl.innerHTML = heartsHtml(MAX_HP);
+    enemyHPEl.innerHTML = heartsHtml(MAX_HP);
+    updateHeartVisual(playerHPEl, playerHP);
+    updateHeartVisual(enemyHPEl, enemyHP);
+  }
+  function updateHeartVisual(el, hp){
+    var hearts = el.querySelectorAll(".heart");
+    hearts.forEach(function(h, i){
+      h.classList.toggle("gone", i >= hp);
+    });
+  }
+
+  function setupRound(){
+    playerHP = MAX_HP;
+    enemyHP = MAX_HP;
+    busy = false;
+    gameOver = false;
+    playerWrap.innerHTML = svgFor(randomType());
+    enemyWrap.innerHTML = svgFor(randomType());
+    playerWrap.className = "beetleWrap";
+    enemyWrap.className = "beetleWrap";
+    renderHP();
+    banner.style.display = "none";
+    startEnemyTimer();
+  }
+
+  function startEnemyTimer(){
+    clearInterval(enemyTimer);
+    enemyTimer = setInterval(function(){
+      if(!gameOver && !busy && Math.random() < 0.5){
+        enemyAttack();
+      }
+    }, 2200);
+  }
+
+  function shakeScreen(){
+    game.classList.remove("shakeAll");
+    void game.offsetWidth;
+    game.classList.add("shakeAll");
+  }
+
+  function playerAttack(){
+    if(busy || gameOver) return;
+    busy = true;
+    hint.style.display = "none";
+    hitSound();
+    playerWrap.classList.add("lungeRight");
+    enemyWrap.classList.add("recoilLeft","hitShake");
+    shakeScreen();
+
+    setTimeout(function(){
+      enemyHP = Math.max(0, enemyHP-1);
+      updateHeartVisual(enemyHPEl, enemyHP);
+      playerWrap.classList.remove("lungeRight");
+      enemyWrap.classList.remove("recoilLeft","hitShake");
+
+      if(enemyHP <= 0){
+        endRound(true);
+      }else{
+        busy = false;
+      }
+    }, 160);
+  }
+
+  function enemyAttack(){
+    if(busy || gameOver) return;
+    busy = true;
+    hitSound();
+    enemyWrap.classList.add("lungeLeft");
+    playerWrap.classList.add("recoilRight","hitShake");
+    shakeScreen();
+
+    setTimeout(function(){
+      playerHP = Math.max(0, playerHP-1);
+      updateHeartVisual(playerHPEl, playerHP);
+      enemyWrap.classList.remove("lungeLeft");
+      playerWrap.classList.remove("recoilRight","hitShake");
+
+      if(playerHP <= 0){
+        endRound(false);
+      }else{
+        busy = false;
+      }
+    }, 160);
+  }
+
+  function endRound(playerWon){
+    gameOver = true;
+    clearInterval(enemyTimer);
+    if(playerWon){
+      enemyWrap.classList.add("flyOffRight");
+      bannerEmoji.textContent = "🏆";
+      bannerText.textContent = "かった！";
+    }else{
+      playerWrap.classList.add("flyOffLeft");
+      bannerEmoji.textContent = "😢";
+      bannerText.textContent = "またね！";
+    }
+    winSound();
+    if(playerWon){ launchConfetti(); }
+
+    setTimeout(function(){
+      banner.style.display = "flex";
+    }, 500);
+
+    setTimeout(function(){
+      setupRound();
+    }, 2800);
+  }
+
+  function launchConfetti(){
+    var colors = ["#ff595e","#ffca3a","#8ac926","#1982c4","#6a4c93"];
+    for(var i=0;i<40;i++){
+      (function(){
+        var d = document.createElement("div");
+        d.className = "confetti";
+        d.style.left = (Math.random()*100)+"vw";
+        d.style.background = colors[Math.floor(Math.random()*colors.length)];
+        var dur = 1.5 + Math.random()*1.5;
+        d.style.animationDuration = dur+"s";
+        d.style.top = "-20px";
+        document.body.appendChild(d);
+        setTimeout(function(){ d.remove(); }, dur*1000+100);
+      })();
+    }
+  }
+
+  // ---------- input: whole screen is the button ----------
+  function onTap(e){
+    if(e){ e.preventDefault(); }
+    if(ctx().state === "suspended"){ ctx().resume(); }
+    playerAttack();
+  }
+  game.addEventListener("pointerdown", onTap);
+  document.addEventListener("keydown", function(e){
+    if(e.code === "Space" || e.key === "Enter"){ onTap(e); }
+  });
+
+  setupRound();
+})();
+</script>
+</body>
+</html>
