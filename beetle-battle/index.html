@@ -149,6 +149,10 @@
   }
   .selectCard:active{ transform:scale(.9); }
   .selectCard svg{ width:100%; display:block; }
+  .selectCard .selectName{
+    font-size:min(3.2vw,14px); font-weight:bold; color:#5a4632;
+    text-align:center; margin-top:2px;
+  }
 
   /* change-beetle button, shown during battle */
   #changeBtn{
@@ -225,41 +229,97 @@
     </svg>`;
   }
 
-  function kuwagataSvg(color){
+  // Hercules beetle: long thoracic horn + shorter head horn forming a pincer
+  function herculesSvg(){
+    var body = "#b9b39c", dark = "#171717", spot = "rgba(0,0,0,.35)";
     return `<svg viewBox="0 0 200 130" xmlns="http://www.w3.org/2000/svg">
       <ellipse cx="70" cy="95" rx="14" ry="5" fill="rgba(0,0,0,.2)"/>
-      <g stroke="#000" stroke-width="5" stroke-linecap="round">
+      <g stroke="${dark}" stroke-width="5" stroke-linecap="round">
+        <line x1="70" y1="90" x2="40" y2="115"/>
+        <line x1="90" y1="95" x2="70" y2="122"/>
+        <line x1="110" y1="95" x2="110" y2="122"/>
+        <line x1="130" y1="90" x2="150" y2="112"/>
+      </g>
+      <ellipse cx="95" cy="80" rx="60" ry="37" fill="${body}"/>
+      <ellipse cx="95" cy="70" rx="60" ry="29" fill="rgba(255,255,255,.25)"/>
+      <circle cx="70" cy="88" r="5" fill="${spot}"/>
+      <circle cx="100" cy="92" r="4" fill="${spot}"/>
+      <circle cx="115" cy="78" r="4.5" fill="${spot}"/>
+      <line x1="95" y1="45" x2="95" y2="115" stroke="rgba(0,0,0,.2)" stroke-width="3"/>
+      <circle cx="150" cy="70" r="22" fill="${dark}"/>
+      <!-- lower head horn (curves up) -->
+      <path d="M150 78 C175 90, 195 86, 197 74 C185 80, 170 78, 152 70 Z" fill="${dark}"/>
+      <!-- upper thoracic horn (long, curves down toward the lower horn) -->
+      <path d="M120 45 C160 28, 195 34, 197 50 C185 42, 160 44, 138 55 Z" fill="${dark}"/>
+      <circle cx="158" cy="66" r="3.6" fill="#000"/>
+      <circle cx="159" cy="65" r="1.2" fill="#fff"/>
+    </svg>`;
+  }
+
+  // Rainbow stag beetle: iridescent green-gold-copper body
+  var rainbowIdSeq = 0;
+  function rainbowStagSvg(){
+    rainbowIdSeq++;
+    var gid = "rainbowGrad" + rainbowIdSeq;
+    return `<svg viewBox="0 0 200 130" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="${gid}" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#2e9e5b"/>
+          <stop offset="45%" stop-color="#c9a227"/>
+          <stop offset="100%" stop-color="#b5651d"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="70" cy="95" rx="14" ry="5" fill="rgba(0,0,0,.2)"/>
+      <g stroke="#3a2f10" stroke-width="5" stroke-linecap="round">
+        <line x1="70" y1="90" x2="40" y2="115"/>
+        <line x1="90" y1="95" x2="70" y2="122"/>
+        <line x1="110" y1="95" x2="110" y2="122"/>
+        <line x1="130" y1="90" x2="150" y2="112"/>
+      </g>
+      <ellipse cx="100" cy="80" rx="62" ry="38" fill="url(#${gid})"/>
+      <ellipse cx="100" cy="70" rx="62" ry="30" fill="rgba(255,255,255,.25)"/>
+      <line x1="100" y1="45" x2="100" y2="115" stroke="rgba(0,0,0,.25)" stroke-width="3"/>
+      <circle cx="148" cy="72" r="20" fill="url(#${gid})"/>
+      <path d="M160 62 C195 50, 205 55, 198 68 C188 62, 172 66, 160 72 Z" fill="#2b2b2b"/>
+      <path d="M160 82 C195 94, 205 89, 198 76 C188 82, 172 78, 160 72 Z" fill="#2b2b2b"/>
+      <circle cx="156" cy="66" r="3.6" fill="#1a1a1a"/>
+      <circle cx="157" cy="65" r="1.2" fill="#fff"/>
+    </svg>`;
+  }
+
+  // Three-horned beetle: one long main horn plus two smaller side horns
+  function threeHornSvg(){
+    var color = "#5b4636", hornColor = "#241a10";
+    return `<svg viewBox="0 0 200 130" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="70" cy="95" rx="14" ry="5" fill="rgba(0,0,0,.2)"/>
+      <g stroke="#1c140c" stroke-width="5" stroke-linecap="round">
         <line x1="70" y1="90" x2="40" y2="115"/>
         <line x1="90" y1="95" x2="70" y2="122"/>
         <line x1="110" y1="95" x2="110" y2="122"/>
         <line x1="130" y1="90" x2="150" y2="112"/>
       </g>
       <ellipse cx="100" cy="80" rx="62" ry="38" fill="${color}"/>
-      <ellipse cx="100" cy="70" rx="62" ry="30" fill="rgba(255,255,255,.12)"/>
+      <ellipse cx="100" cy="70" rx="62" ry="30" fill="rgba(255,255,255,.15)"/>
       <line x1="100" y1="45" x2="100" y2="115" stroke="rgba(0,0,0,.3)" stroke-width="3"/>
-      <circle cx="148" cy="72" r="20" fill="${color}"/>
-      <!-- pincers -->
-      <path d="M160 62 C195 50, 205 55, 198 68 C188 62, 172 66, 160 72 Z" fill="#1c1c1c"/>
-      <path d="M160 82 C195 94, 205 89, 198 76 C188 82, 172 78, 160 72 Z" fill="#1c1c1c"/>
-      <circle cx="156" cy="66" r="3.6" fill="#1a1a1a"/>
-      <circle cx="157" cy="65" r="1.2" fill="#fff"/>
+      <circle cx="150" cy="70" r="24" fill="${color}"/>
+      <!-- main thoracic horn (tall, set back over the wing/thorax) -->
+      <path d="M110 54 C120 28, 138 10, 148 8 C142 22, 128 40, 116 56 Z" fill="${hornColor}"/>
+      <!-- two small head horns (forked, near the nose) -->
+      <path d="M164 46 L172 54 L198 20 Z" fill="${hornColor}"/>
+      <path d="M168 54 L178 62 L202 50 Z" fill="${hornColor}"/>
+      <circle cx="156" cy="72" r="4" fill="#000"/>
+      <circle cx="157" cy="71" r="1.4" fill="#fff"/>
     </svg>`;
   }
 
-  var ENEMY_TYPES = [
-    { make:kabutoSvg,   args:["#8a4b2b","#5c3416"] },
-    { make:kabutoSvg,   args:["#b5651d","#7a4212"] },
-    { make:kuwagataSvg, args:["#2b2b2b"] },
-    { make:kuwagataSvg, args:["#3c2f2f"] }
-  ];
-
-  // kabutomushi color choices for the player to pick from
+  // the four beetle kinds the player can choose from (also used as the enemy pool)
   var PLAYER_CHOICES = [
-    { make:kabutoSvg, args:["#8a4b2b","#5c3416"] },
-    { make:kabutoSvg, args:["#b5651d","#7a4212"] },
-    { make:kabutoSvg, args:["#a13d2b","#6b2416"] },
-    { make:kabutoSvg, args:["#4a3728","#2b1c12"] }
+    { make:kabutoSvg,      args:["#8a4b2b","#5c3416"], name:"ふつうのカブトムシ" },
+    { make:herculesSvg,    args:[],                    name:"ヘラクレスオオカブト" },
+    { make:rainbowStagSvg, args:[],                    name:"ニジイロクワガタ" },
+    { make:threeHornSvg,   args:[],                    name:"ツノが3本のカブトムシ" }
   ];
+  var ENEMY_TYPES = PLAYER_CHOICES;
 
   function randomEnemyType(){ return ENEMY_TYPES[Math.floor(Math.random()*ENEMY_TYPES.length)]; }
   function svgFor(t){ return t.make.apply(null, t.args); }
@@ -349,7 +409,7 @@
     PLAYER_CHOICES.forEach(function(type){
       var card = document.createElement("div");
       card.className = "selectCard";
-      card.innerHTML = svgFor(type);
+      card.innerHTML = svgFor(type) + '<div class="selectName">' + type.name + '</div>';
       card.addEventListener("pointerdown", function(e){
         e.stopPropagation();
         e.preventDefault();
