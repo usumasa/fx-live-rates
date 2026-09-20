@@ -133,40 +133,55 @@ function typeMultiplier(aFam, dFam){
   if(STRONG_AGAINST[dFam]===aFam) return 0.67;
   return 1;
 }
-function mkMove(name, power, uses){ return { name:name, power:power, uses: uses||null }; }
+function mkMove(name, power, uses, unlockLevel){ return { name:name, power:power, uses: uses||null, unlockLevel: unlockLevel||1 }; }
 
 var SPECIES = {
   flame:   { name:"ヒノコ",     fams:["hono"],       base:{hp:10,atk:8,def:4,spd:5}, growth:{hp:3,atk:2,def:1,spd:1.5},
-             attack:mkMove("ひっかき",1.0), skill:mkMove("ひのたま",1.6,3) },
+             attack:mkMove("ひっかき",1.0),
+             moves:[ mkMove("ひのたま",1.6,3,1), mkMove("おおひのたま",2.0,2,10), mkMove("えんごくのほのお",2.6,1,20) ] },
   aqua:    { name:"ポチャポン", fams:["mizu"],       base:{hp:12,atk:5,def:8,spd:4}, growth:{hp:3,atk:1.5,def:2,spd:1},
-             attack:mkMove("たいあたり",1.0), skill:mkMove("みずでっぽう",1.6,3) },
+             attack:mkMove("たいあたり",1.0),
+             moves:[ mkMove("みずでっぽう",1.6,3,1), mkMove("うずしお",2.0,2,10), mkMove("だいかいしょう",2.6,1,20) ] },
   leaf:    { name:"ハッパン",   fams:["kusa"],       base:{hp:14,atk:5,def:6,spd:4}, growth:{hp:3.5,atk:1.5,def:1.5,spd:1},
-             attack:mkMove("たいあたり",1.0), skill:mkMove("はっぱカッター",1.6,3) },
+             attack:mkMove("たいあたり",1.0),
+             moves:[ mkMove("はっぱカッター",1.6,3,1), mkMove("つるのムチ",2.0,2,10), mkMove("だいしぜんのいかり",2.6,1,20) ] },
   beast:   { name:"キバウル",   fams:["kemo"],       base:{hp:10,atk:6,def:4,spd:8}, growth:{hp:2.5,atk:1.5,def:1,spd:2},
-             attack:mkMove("ひっかき",1.0), skill:mkMove("れんぞくアタック",1.6,3) },
+             attack:mkMove("ひっかき",1.0),
+             moves:[ mkMove("れんぞくアタック",1.6,3,1), mkMove("きょうぼうがみつき",2.0,2,10), mkMove("げきりんのつめ",2.6,1,20) ] },
   dark:    { name:"マガトル",   fams:["aku"],        base:{hp:8,atk:9,def:4,spd:6},  growth:{hp:2,atk:2.5,def:1,spd:1.5},
-             attack:mkMove("たいあたり",1.0), skill:mkMove("あくまのつめ",1.6,3) },
+             attack:mkMove("たいあたり",1.0),
+             moves:[ mkMove("あくまのつめ",1.6,3,1), mkMove("あんこくげり",2.0,2,10), mkMove("まおうのいかり",2.6,1,20) ] },
 
   steam:    { name:"ユゲムー",   fams:["hono","mizu"], base:{hp:11,atk:7,def:6,spd:5}, growth:{hp:3,atk:2,def:1.5,spd:1.5},
-              attack:mkMove("たいあたり",1.0), skill:mkMove("スチームブラスト",1.6,3) },
+              attack:mkMove("たいあたり",1.0),
+              moves:[ mkMove("スチームブラスト",1.6,3,1), mkMove("じょうききり",2.0,2,10), mkMove("だいばくはつじょうき",2.6,1,20) ] },
   scorch:   { name:"コゲッパ",   fams:["hono","kusa"], base:{hp:12,atk:7,def:5,spd:5}, growth:{hp:3,atk:2,def:1,spd:1},
-              attack:mkMove("ひっかき",1.0), skill:mkMove("こげくさアタック",1.6,3) },
+              attack:mkMove("ひっかき",1.0),
+              moves:[ mkMove("こげくさアタック",1.6,3,1), mkMove("はいじんあらし",2.0,2,10), mkMove("だいえんじょう",2.6,1,20) ] },
   wildfire: { name:"モウカロン", fams:["hono","kemo"], base:{hp:10,atk:7,def:4,spd:7}, growth:{hp:3,atk:2,def:1,spd:2},
-              attack:mkMove("ひっかき",1.0), skill:mkMove("もうかえん",1.6,3) },
+              attack:mkMove("ひっかき",1.0),
+              moves:[ mkMove("もうかえん",1.6,3,1), mkMove("れっかしん",2.0,2,10), mkMove("のやきつくし",2.6,1,20) ] },
   hellfire: { name:"エンマヒ",   fams:["hono","aku"],  base:{hp:9,atk:9,def:4,spd:6},  growth:{hp:2.5,atk:2,def:1,spd:1.5},
-              attack:mkMove("たいあたり",1.0), skill:mkMove("ごうかのほのお",1.6,3) },
+              attack:mkMove("たいあたり",1.0),
+              moves:[ mkMove("ごうかのほのお",1.6,3,1), mkMove("じごくのほのお",2.0,2,10), mkMove("えんまのさばき",2.6,1,20) ] },
   swamp:    { name:"ドロモリ",   fams:["mizu","kusa"], base:{hp:13,atk:5,def:7,spd:4}, growth:{hp:3,atk:1.5,def:2,spd:1},
-              attack:mkMove("たいあたり",1.0), skill:mkMove("どろなみ",1.6,3) },
+              attack:mkMove("たいあたり",1.0),
+              moves:[ mkMove("どろなみ",1.6,3,1), mkMove("ぬまのわな",2.0,2,10), mkMove("おおぬまじごく",2.6,1,20) ] },
   otter:    { name:"ラッコロ",   fams:["mizu","kemo"], base:{hp:11,atk:6,def:6,spd:6}, growth:{hp:3,atk:1.5,def:1.5,spd:1.5},
-              attack:mkMove("たいあたり",1.0), skill:mkMove("アクアテール",1.6,3) },
+              attack:mkMove("たいあたり",1.0),
+              moves:[ mkMove("アクアテール",1.6,3,1), mkMove("かいりゅうしょうげき",2.0,2,10), mkMove("だいうずしお",2.6,1,20) ] },
   abyss:    { name:"ヤミウズ",   fams:["mizu","aku"],  base:{hp:10,atk:7,def:6,spd:5}, growth:{hp:2.5,atk:2,def:1.5,spd:1},
-              attack:mkMove("たいあたり",1.0), skill:mkMove("あんこくウェーブ",1.6,3) },
+              attack:mkMove("たいあたり",1.0),
+              moves:[ mkMove("あんこくウェーブ",1.6,3,1), mkMove("しんえんのちから",2.0,2,10), mkMove("ぜつぼうのふち",2.6,1,20) ] },
   sprout:   { name:"モフバナ",   fams:["kusa","kemo"], base:{hp:12,atk:6,def:5,spd:6}, growth:{hp:3,atk:1.5,def:1,spd:1.5},
-              attack:mkMove("たいあたり",1.0), skill:mkMove("はなふぶき",1.6,3) },
+              attack:mkMove("たいあたり",1.0),
+              moves:[ mkMove("はなふぶき",1.6,3,1), mkMove("せいめいのはどう",2.0,2,10), mkMove("だいちのめぐみ",2.6,1,20) ] },
   thorn:    { name:"トゲドク",   fams:["kusa","aku"],  base:{hp:11,atk:7,def:5,spd:5}, growth:{hp:3,atk:2,def:1,spd:1},
-              attack:mkMove("たいあたり",1.0), skill:mkMove("どくのトゲ",1.6,3) },
+              attack:mkMove("たいあたり",1.0),
+              moves:[ mkMove("どくのトゲ",1.6,3,1), mkMove("もうどくのきり",2.0,2,10), mkMove("ぜつぼうのどく",2.6,1,20) ] },
   werewolf: { name:"ガルナイト", fams:["kemo","aku"],  base:{hp:9,atk:8,def:4,spd:7},  growth:{hp:2,atk:2,def:1,spd:2},
-              attack:mkMove("ひっかき",1.0), skill:mkMove("ムーンファング",1.6,3) }
+              attack:mkMove("ひっかき",1.0),
+              moves:[ mkMove("ムーンファング",1.6,3,1), mkMove("まんげつげきりん",2.0,2,10), mkMove("えいごうのおおかみ",2.6,1,20) ] }
 };
 
 var SYNTHESIS_TABLE = {};
@@ -363,11 +378,19 @@ function mulberry32(seed){
 }
 function turnSeed(roomSeed, turn){ return ((roomSeed*1000003)+turn)>>>0; }
 
+// a move a monster hasn't reached the level for yet, or an out-of-range/missing choice, safely falls back to its first move (always unlocked)
+function equippedMoveIndex(speciesId, inst){
+  var sp = SPECIES[speciesId];
+  var idx = inst && inst.equippedSkillIndex;
+  if(idx==null || !sp.moves[idx] || sp.moves[idx].unlockLevel > inst.level) return 0;
+  return idx;
+}
 function toRuntime(inst){
   var statBonus = inst.statBonus || defaultStatBonus(inst.level);
   var stats = allStatsFromBonus(inst.speciesId, statBonus);
   var sp = SPECIES[inst.speciesId];
-  return { uid:inst.uid, speciesId:inst.speciesId, level:inst.level, stats:stats, maxHp:stats.hp, currentHp:stats.hp, skillUses:sp.skill.uses };
+  var skillIdx = equippedMoveIndex(inst.speciesId, inst);
+  return { uid:inst.uid, speciesId:inst.speciesId, level:inst.level, stats:stats, maxHp:stats.hp, currentHp:stats.hp, skillIndex:skillIdx, skillUses:sp.moves[skillIdx].uses };
 }
 function makeRuntimeTeam(instances){ return { monsters: instances.map(toRuntime), activeIndex:0 }; }
 function aliveIndices(team){ var out=[]; team.monsters.forEach(function(m,i){ if(m.currentHp>0) out.push(i); }); return out; }
@@ -396,7 +419,7 @@ function resolveTurn(teamA, actionA, teamB, actionB, rng){
     var attacker = attackerTeam.monsters[attackerTeam.activeIndex];
     if(!attacker || attacker.currentHp<=0) return;
     var sp = SPECIES[attacker.speciesId];
-    var move = action.type==='skill' ? sp.skill : sp.attack;
+    var move = action.type==='skill' ? sp.moves[attacker.skillIndex] : sp.attack;
     if(action.type==='skill'){ if(attacker.skillUses<=0){ move = sp.attack; } else { attacker.skillUses--; } }
     var defender = defenderTeam.monsters[defenderTeam.activeIndex];
     if(!defender || defender.currentHp<=0) return;
@@ -463,10 +486,10 @@ function randomRoomCode(){
   return s;
 }
 function currentTeamInfo(){
-  return G.party.map(function(uid){ var m = findMon(uid); return { speciesId:m.speciesId, level:m.level, statBonus:m.statBonus }; });
+  return G.party.map(function(uid){ var m = findMon(uid); return { speciesId:m.speciesId, level:m.level, statBonus:m.statBonus, equippedSkillIndex:m.equippedSkillIndex }; });
 }
 function runtimeTeamFromInfo(teamInfo){
-  return makeRuntimeTeam(teamInfo.map(function(t,i){ return { uid:'p'+i, speciesId:t.speciesId, level:t.level, statBonus:t.statBonus }; }));
+  return makeRuntimeTeam(teamInfo.map(function(t,i){ return { uid:'p'+i, speciesId:t.speciesId, level:t.level, statBonus:t.statBonus, equippedSkillIndex:t.equippedSkillIndex }; }));
 }
 
 function createOnlineRoom(){
@@ -731,8 +754,21 @@ function renderMonDetail(){
       '<div class="hpBarOuter"><div class="hpBarInner" style="width:'+pct+'%;"></div></div>'+
     '</div>';
   });
-  html += '</div></div>';
-  html += '<div class="navRow"><div class="btn" data-action="back-home">もどる</div></div>';
+  html += '</div>';
+
+  var equippedIdx = equippedMoveIndex(inst.speciesId, inst);
+  html += '<div style="margin-top:12px;text-align:left;max-width:280px;margin-left:auto;margin-right:auto;">';
+  html += '<div style="font-size:13px;font-weight:bold;margin-bottom:4px;">とくぎ（Lv10・Lv20で ふえる）</div>';
+  sp.moves.forEach(function(move, i){
+    var unlocked = inst.level >= move.unlockLevel;
+    html += '<div style="font-size:12px;padding:4px 0;'+(unlocked?'':'color:#bbb;')+'">'+
+      (i===equippedIdx && unlocked ? '👉 ' : '　　')+move.name+(unlocked ? '' : '（Lv'+move.unlockLevel+'〜）')+
+    '</div>';
+  });
+  html += '</div>';
+
+  html += '</div>';
+  html += '<div class="navRow"><div class="btn" data-action="back-home">もどる</div><div class="btn" data-action="go-party">パーティで とくぎへんこう</div></div>';
   app.innerHTML = html;
 }
 
@@ -774,6 +810,31 @@ function renderPartySelect(){
     html += monCardHtml(inst, { action:'toggle-party', selected: idx!==-1, badge: idx!==-1 ? String(idx+1) : undefined });
   });
   html += '</div></div>';
+
+  if(G.party.length>0){
+    html += '<h2 class="section">とくぎを せんたく（Lv10・Lv20で ふえるよ）</h2>';
+    html += '<div class="card">';
+    G.party.forEach(function(uid){
+      var inst = findMon(uid);
+      var sp = SPECIES[inst.speciesId];
+      var equippedIdx = equippedMoveIndex(inst.speciesId, inst);
+      html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">'+
+        '<div style="width:44px;flex:0 0 auto;">'+monsterSvg(inst.speciesId)+'</div>'+
+        '<div style="flex:1;">'+
+        '<div style="font-size:12px;font-weight:bold;margin-bottom:4px;">'+sp.name+' Lv'+inst.level+'</div>'+
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+      sp.moves.forEach(function(move, i){
+        var unlocked = inst.level >= move.unlockLevel;
+        var isEquipped = i===equippedIdx;
+        html += '<div class="btn small'+(isEquipped?' primary':'')+(unlocked?'':' disabled')+'" data-action="set-skill" data-uid="'+uid+'" data-idx="'+i+'">'+
+          (unlocked ? move.name : move.name+'（Lv'+move.unlockLevel+'〜）')+
+        '</div>';
+      });
+      html += '</div></div></div>';
+    });
+    html += '</div>';
+  }
+
   html += '<div class="navRow"><div class="btn primary" data-action="back-home">✅ けってい</div></div>';
   app.innerHTML = html;
 }
@@ -876,7 +937,7 @@ function renderBattle(){
   } else {
     html += '<div class="actionGrid">'+
       '<div class="btn primary" data-action="do-attack">🗡️ たたかう</div>'+
-      '<div class="btn primary'+(a.skillUses<=0?' disabled':'')+'" data-action="do-skill">✨ '+spA.skill.name+'（'+a.skillUses+'）</div>'+
+      '<div class="btn primary'+(a.skillUses<=0?' disabled':'')+'" data-action="do-skill">✨ '+spA.moves[a.skillIndex].name+'（'+a.skillUses+'）</div>'+
       '<div class="btn" data-action="show-switch">🔄 こうたい</div>'+
       '<div class="btn" data-action="battle-flee">🏃 にげる</div>'+
     '</div>';
@@ -1040,7 +1101,7 @@ function renderOnlineBattle(){
   } else {
     html += '<div class="actionGrid">'+
       '<div class="btn primary" data-action="online-attack">🗡️ たたかう</div>'+
-      '<div class="btn primary'+(my.skillUses<=0?' disabled':'')+'" data-action="online-skill">✨ '+spMy.skill.name+'（'+my.skillUses+'）</div>'+
+      '<div class="btn primary'+(my.skillUses<=0?' disabled':'')+'" data-action="online-skill">✨ '+spMy.moves[my.skillIndex].name+'（'+my.skillUses+'）</div>'+
       '<div class="btn" data-action="online-show-switch">🔄 こうたい</div>'+
       '<div class="btn" data-action="online-leave">🏳️ ギブアップ</div>'+
     '</div>';
@@ -1109,6 +1170,13 @@ app.addEventListener('click', function(e){
     else if(G.party.length<3){ G.party.push(uid); }
     else { toast('パーティは さいだい3匹まで！'); }
     save();
+    render();
+  } else if(action==='set-skill'){
+    if(el.classList.contains('disabled')) return;
+    var skUid = el.getAttribute('data-uid');
+    var skInst = findMon(skUid);
+    var skIdx = parseInt(el.getAttribute('data-idx'),10);
+    if(skInst){ skInst.equippedSkillIndex = skIdx; save(); }
     render();
   } else if(action==='toggle-synth'){
     var uid2 = el.getAttribute('data-uid');
