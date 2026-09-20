@@ -1260,7 +1260,7 @@ function renderSynth(){
   }
   if(previewId){
     var monA = findMon(G.synthSelect[0]), monB = findMon(G.synthSelect[1]);
-    var newLevel = Math.max(1, Math.round((monA.level + monB.level)/4));
+    var newLevel = 1;
     var resultStats = allStatsFromBonus(previewId, defaultStatBonus(newLevel));
     function synthColumnHtml(speciesId, level, stats, big){
       return '<div style="text-align:center;">'+
