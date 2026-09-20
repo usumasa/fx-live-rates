@@ -447,7 +447,9 @@ function resolveTurn(teamA, actionA, teamB, actionB, rng){
   }
   var switchedA = applySwitch(teamA, actionA, 'A');
   var switchedB = applySwitch(teamB, actionB, 'B');
-  function doAttack(attackerTeam, action, defenderTeam, side){
+  // a fresh switch-in is safe from that turn's incoming attack: no "revenge kill" for switching,
+  // so an attack aimed at a defender who just switched away whiffs harmlessly instead of landing
+  function doAttack(attackerTeam, action, defenderTeam, side, defenderJustSwitched){
     var attacker = attackerTeam.monsters[attackerTeam.activeIndex];
     if(!attacker || attacker.currentHp<=0) return;
     var sp = SPECIES[attacker.speciesId];
@@ -463,6 +465,11 @@ function resolveTurn(teamA, actionA, teamB, actionB, rng){
         healed = attacker.currentHp - beforeHp;
       }
       log.push({type:'support', side:side, attackerName:SPECIES[attacker.speciesId].name, moveName:move.name, statKey:move.statKey, healed:healed});
+      return;
+    }
+
+    if(defenderJustSwitched){
+      log.push({type:'whiff', side:side, attackerName:SPECIES[attacker.speciesId].name, moveName:move.name});
       return;
     }
 
@@ -482,10 +489,10 @@ function resolveTurn(teamA, actionA, teamB, actionB, rng){
   if(aAttacks && bAttacks){
     var activeA = teamA.monsters[teamA.activeIndex], activeB = teamB.monsters[teamB.activeIndex];
     var aFirst = activeA.stats.spd===activeB.stats.spd ? (rng()<0.5) : activeA.stats.spd>activeB.stats.spd;
-    if(aFirst){ doAttack(teamA,actionA,teamB,'A'); doAttack(teamB,actionB,teamA,'B'); }
-    else { doAttack(teamB,actionB,teamA,'B'); doAttack(teamA,actionA,teamB,'A'); }
-  } else if(aAttacks){ doAttack(teamA,actionA,teamB,'A'); }
-  else if(bAttacks){ doAttack(teamB,actionB,teamA,'B'); }
+    if(aFirst){ doAttack(teamA,actionA,teamB,'A',switchedB); doAttack(teamB,actionB,teamA,'B',switchedA); }
+    else { doAttack(teamB,actionB,teamA,'B',switchedA); doAttack(teamA,actionA,teamB,'A',switchedB); }
+  } else if(aAttacks){ doAttack(teamA,actionA,teamB,'A',switchedB); }
+  else if(bAttacks){ doAttack(teamB,actionB,teamA,'B',switchedA); }
 
   var needsReplacementA = teamA.monsters[teamA.activeIndex].currentHp<=0 && !isDefeated(teamA);
   var needsReplacementB = teamB.monsters[teamB.activeIndex].currentHp<=0 && !isDefeated(teamB);
@@ -503,6 +510,7 @@ function formatLogEntry(entry, viewerIsA){
     if(entry.healed>0) txt += '('+entry.attackerName+'の HPが '+entry.healed+' かいふくした！)';
     return txt;
   }
+  if(entry.type==='whiff') return (mine?'あなた':'あいて')+'の '+entry.attackerName+'の '+entry.moveName+'！ でも あいてが こうたいしたので あたらなかった！';
   var eff = entry.multiplier>1 ? '(こうかは ばつぐんだ！)' : (entry.multiplier<1 ? '(こうかは いまひとつ...)' : '');
   return (mine?'あなた':'あいて')+'の '+entry.attackerName+'の '+entry.moveName+'！ '+entry.damage+'ダメージ '+eff;
 }
