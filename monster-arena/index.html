@@ -135,10 +135,12 @@ function typeMultiplier(aFam, dFam){
 }
 function mkMove(name, power, uses, unlockLevel){ return { name:name, power:power, uses: uses||null, unlockLevel: unlockLevel||1 }; }
 // support moves boost the whole team (not just the active monster) for a few hits, so the
-// boost is still there after switching; see BUFF_MULTIPLIER/BUFF_DURATION in the battle engine
-function mkSupportMove(name, statKey, uses, unlockLevel){ return { name:name, power:0, uses:uses, unlockLevel:unlockLevel, kind:'support', statKey:statKey }; }
+// boost is still there after switching; see BUFF_MULTIPLIER/BUFF_DURATION in the battle engine.
+// healPct (defWall only) lets bulky species mend some HP while raising the team's defence,
+// giving a high-HP build a real way to outlast a buffed attacker instead of just losing faster.
+function mkSupportMove(name, statKey, uses, unlockLevel, healPct){ return { name:name, power:0, uses:uses, unlockLevel:unlockLevel, kind:'support', statKey:statKey, healPct:healPct||0 }; }
 function atkCry(){ return mkSupportMove("とうこんのさけび","atk",3,15); }
-function defWall(){ return mkSupportMove("てっぺきのかまえ","def",3,15); }
+function defWall(){ return mkSupportMove("てっぺきのかまえ","def",3,15,0.25); }
 
 var SPECIES = {
   flame:   { name:"ヒノコ",     fams:["hono"],       base:{hp:10,atk:8,def:4,spd:5}, growth:{hp:3,atk:2,def:1,spd:1.5},
@@ -153,7 +155,7 @@ var SPECIES = {
   beast:   { name:"キバウル",   fams:["kemo"],       base:{hp:10,atk:6,def:4,spd:8}, growth:{hp:2.5,atk:1.5,def:1,spd:2},
              attack:mkMove("ひっかき",1.0),
              moves:[ mkMove("れんぞくアタック",1.6,3,1), mkMove("きょうぼうがみつき",2.0,2,10), atkCry(), mkMove("げきりんのつめ",2.6,1,20) ] },
-  dark:    { name:"マガトル",   fams:["aku"],        base:{hp:8,atk:9,def:4,spd:6},  growth:{hp:2,atk:2.5,def:1,spd:1.5},
+  dark:    { name:"マガトル",   fams:["aku"],        base:{hp:8,atk:6.5,def:5,spd:6},  growth:{hp:2,atk:1.8,def:1.5,spd:1.5},
              attack:mkMove("たいあたり",1.0),
              moves:[ mkMove("あくまのつめ",1.6,3,1), mkMove("あんこくげり",2.0,2,10), atkCry(), mkMove("まおうのいかり",2.6,1,20) ] },
 
@@ -166,7 +168,7 @@ var SPECIES = {
   wildfire: { name:"モウカロン", fams:["hono","kemo"], base:{hp:10,atk:7,def:4,spd:7}, growth:{hp:3,atk:2,def:1,spd:2},
               attack:mkMove("ひっかき",1.0),
               moves:[ mkMove("もうかえん",1.6,3,1), mkMove("れっかしん",2.0,2,10), atkCry(), mkMove("のやきつくし",2.6,1,20) ] },
-  hellfire: { name:"エンマヒ",   fams:["hono","aku"],  base:{hp:9,atk:9,def:4,spd:6},  growth:{hp:2.5,atk:2,def:1,spd:1.5},
+  hellfire: { name:"エンマヒ",   fams:["hono","aku"],  base:{hp:9,atk:8,def:4.5,spd:6},  growth:{hp:2.5,atk:1.7,def:1.25,spd:1.5},
               attack:mkMove("たいあたり",1.0),
               moves:[ mkMove("ごうかのほのお",1.6,3,1), mkMove("じごくのほのお",2.0,2,10), atkCry(), mkMove("えんまのさばき",2.6,1,20) ] },
   swamp:    { name:"ドロモリ",   fams:["mizu","kusa"], base:{hp:13,atk:5,def:7,spd:4}, growth:{hp:3,atk:1.5,def:2,spd:1},
@@ -175,16 +177,16 @@ var SPECIES = {
   otter:    { name:"ラッコロ",   fams:["mizu","kemo"], base:{hp:11,atk:6,def:6,spd:6}, growth:{hp:3,atk:1.5,def:1.5,spd:1.5},
               attack:mkMove("たいあたり",1.0),
               moves:[ mkMove("アクアテール",1.6,3,1), mkMove("かいりゅうしょうげき",2.0,2,10), defWall(), mkMove("だいうずしお",2.6,1,20) ] },
-  abyss:    { name:"ヤミウズ",   fams:["mizu","aku"],  base:{hp:10,atk:7,def:6,spd:5}, growth:{hp:2.5,atk:2,def:1.5,spd:1},
+  abyss:    { name:"ヤミウズ",   fams:["mizu","aku"],  base:{hp:10,atk:6,def:7,spd:5}, growth:{hp:2.5,atk:1.7,def:1.9,spd:1},
               attack:mkMove("たいあたり",1.0),
               moves:[ mkMove("あんこくウェーブ",1.6,3,1), mkMove("しんえんのちから",2.0,2,10), defWall(), mkMove("ぜつぼうのふち",2.6,1,20) ] },
   sprout:   { name:"モフバナ",   fams:["kusa","kemo"], base:{hp:12,atk:6,def:5,spd:6}, growth:{hp:3,atk:1.5,def:1,spd:1.5},
               attack:mkMove("たいあたり",1.0),
               moves:[ mkMove("はなふぶき",1.6,3,1), mkMove("せいめいのはどう",2.0,2,10), defWall(), mkMove("だいちのめぐみ",2.6,1,20) ] },
-  thorn:    { name:"トゲドク",   fams:["kusa","aku"],  base:{hp:11,atk:7,def:5,spd:5}, growth:{hp:3,atk:2,def:1,spd:1},
+  thorn:    { name:"トゲドク",   fams:["kusa","aku"],  base:{hp:11,atk:6,def:5.5,spd:5}, growth:{hp:3,atk:1.7,def:1.25,spd:1},
               attack:mkMove("たいあたり",1.0),
               moves:[ mkMove("どくのトゲ",1.6,3,1), mkMove("もうどくのきり",2.0,2,10), defWall(), mkMove("ぜつぼうのどく",2.6,1,20) ] },
-  werewolf: { name:"ガルナイト", fams:["kemo","aku"],  base:{hp:9,atk:8,def:4,spd:7},  growth:{hp:2,atk:2,def:1,spd:2},
+  werewolf: { name:"ガルナイト", fams:["kemo","aku"],  base:{hp:9,atk:7,def:4.5,spd:7},  growth:{hp:2,atk:1.7,def:1.25,spd:2},
               attack:mkMove("ひっかき",1.0),
               moves:[ mkMove("ムーンファング",1.6,3,1), mkMove("まんげつげきりん",2.0,2,10), atkCry(), mkMove("えいごうのおおかみ",2.6,1,20) ] }
 };
@@ -225,7 +227,7 @@ function primaryType(speciesId){
 }
 function computeDamage(atkSpeciesId, defSpeciesId, movePower, atk, def, rng){
   var mult = typeMultiplier(primaryType(atkSpeciesId), primaryType(defSpeciesId));
-  var raw = Math.max(1, atk*movePower - def*0.4);
+  var raw = Math.max(1, atk*movePower - def*0.5);
   var variance = 0.9 + rng()*0.2;
   return { damage: Math.max(1, Math.round(raw*mult*variance)), multiplier: mult };
 }
@@ -399,7 +401,7 @@ function toRuntime(inst){
 }
 function makeRuntimeTeam(instances){ return { monsters: instances.map(toRuntime), activeIndex:0, buffs:{ atk:{turnsLeft:0}, def:{turnsLeft:0} } }; }
 var BUFF_MULTIPLIER = 1.5;
-var BUFF_DURATION = 3; // number of the buffed side's own attacks (ATK) or hits taken (DEF) it lasts through
+var BUFF_DURATION = 5; // number of the buffed side's own attacks (ATK) or hits taken (DEF) it lasts through
 function aliveIndices(team){ var out=[]; team.monsters.forEach(function(m,i){ if(m.currentHp>0) out.push(i); }); return out; }
 function isDefeated(team){ return aliveIndices(team).length===0; }
 
@@ -431,7 +433,13 @@ function resolveTurn(teamA, actionA, teamB, actionB, rng){
 
     if(move.kind==='support'){
       attackerTeam.buffs[move.statKey].turnsLeft = BUFF_DURATION;
-      log.push({type:'support', side:side, attackerName:SPECIES[attacker.speciesId].name, moveName:move.name, statKey:move.statKey});
+      var healed = 0;
+      if(move.healPct){
+        var beforeHp = attacker.currentHp;
+        attacker.currentHp = Math.min(attacker.maxHp, attacker.currentHp + Math.round(attacker.maxHp*move.healPct));
+        healed = attacker.currentHp - beforeHp;
+      }
+      log.push({type:'support', side:side, attackerName:SPECIES[attacker.speciesId].name, moveName:move.name, statKey:move.statKey, healed:healed});
       return;
     }
 
@@ -468,7 +476,9 @@ function formatLogEntry(entry, viewerIsA){
   if(entry.type==='faint') return entry.name+'は たおれた！';
   if(entry.type==='support'){
     var statName = entry.statKey==='atk' ? 'こうげき' : 'ぼうぎょ';
-    return (mine?'あなた':'あいて')+'の '+entry.attackerName+'の '+entry.moveName+'！ みかたぜんいんの '+statName+'が あがった！';
+    var txt = (mine?'あなた':'あいて')+'の '+entry.attackerName+'の '+entry.moveName+'！ みかたぜんいんの '+statName+'が あがった！';
+    if(entry.healed>0) txt += '('+entry.attackerName+'の HPが '+entry.healed+' かいふくした！)';
+    return txt;
   }
   var eff = entry.multiplier>1 ? '(こうかは ばつぐんだ！)' : (entry.multiplier<1 ? '(こうかは いまひとつ...)' : '');
   return (mine?'あなた':'あいて')+'の '+entry.attackerName+'の '+entry.moveName+'！ '+entry.damage+'ダメージ '+eff;
