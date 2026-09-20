@@ -108,11 +108,20 @@
 
 /* ============================== DATA ============================== */
 var FAMILIES = {
-  hono:  { name:"ほのお", color:"#ff6b4a", accent:"flame" },
-  mizu:  { name:"みず",   color:"#4ab3ff", accent:"drop" },
-  kusa:  { name:"くさ",   color:"#6bcf5a", accent:"leaf" },
-  kemo:  { name:"けもの", color:"#c98b4a", accent:"ear" },
-  aku:   { name:"あくま", color:"#8a5ac9", accent:"horn" }
+  hono:  { name:"ほのお", color:"#ff6b4a", accent:"flame", shape:"upright" },
+  mizu:  { name:"みず",   color:"#4ab3ff", accent:"drop",  shape:"wide" },
+  kusa:  { name:"くさ",   color:"#6bcf5a", accent:"leaf",  shape:"scallop" },
+  kemo:  { name:"けもの", color:"#c98b4a", accent:"ear",   shape:"quad" },
+  aku:   { name:"あくま", color:"#8a5ac9", accent:"horn",  shape:"peak" }
+};
+// each family's monsters share a body silhouette, not just a color/head-accent,
+// so the 15 species read as visibly different creatures rather than recolored clones
+var SHAPES = {
+  upright: { rx:56, ry:58, cy:118, legs:2 },
+  wide:    { rx:70, ry:46, cy:128, legs:2 },
+  scallop: { rx:60, ry:54, cy:120, legs:2 },
+  quad:    { rx:72, ry:42, cy:130, legs:4 },
+  peak:    { rx:56, ry:56, cy:120, legs:2 }
 };
 var STRONG_AGAINST = { hono:"kusa", kusa:"mizu", mizu:"hono" };
 var TYPE_FAMS = ["hono","mizu","kusa"];
@@ -226,12 +235,64 @@ var ACCENT_FN = { flame:accentFlame, drop:accentDrop, leaf:accentLeaf, ear:accen
 
 function bodyColorFor(sp){ return sp.fams.length===1 ? FAMILIES[sp.fams[0]].color : mixColor(FAMILIES[sp.fams[0]].color, FAMILIES[sp.fams[1]].color); }
 
+function legsSvg(shape, dark){
+  var cx=100;
+  if(shape.legs===4){
+    var xs=[-50,-20,20,50];
+    var y1=Math.round(shape.cy+shape.ry*0.55), y2=Math.round(shape.cy+shape.ry*1.02);
+    return '<g stroke="'+dark+'" stroke-width="8" stroke-linecap="round">'+
+      xs.map(function(dx){ return '<line x1="'+(cx+dx)+'" y1="'+y1+'" x2="'+(cx+dx*1.08)+'" y2="'+y2+'"/>'; }).join('')+
+    '</g>';
+  }
+  var y1=Math.round(shape.cy+shape.ry*0.62), y2=Math.round(shape.cy+shape.ry*0.98);
+  return '<g stroke="'+dark+'" stroke-width="9" stroke-linecap="round">'+
+    '<line x1="'+(cx-40)+'" y1="'+y1+'" x2="'+(cx-48)+'" y2="'+y2+'"/>'+
+    '<line x1="'+(cx+40)+'" y1="'+y1+'" x2="'+(cx+48)+'" y2="'+y2+'"/>'+
+  '</g>';
+}
+function topDecorSvg(shapeName, shape, color){
+  var cx=100, topY=shape.cy-shape.ry;
+  if(shapeName==='scallop'){
+    return [-26,0,26].map(function(dx){ return '<circle cx="'+(cx+dx)+'" cy="'+(topY+10)+'" r="16" fill="'+color+'"/>'; }).join('');
+  }
+  if(shapeName==='wide'){
+    return '<circle cx="'+cx+'" cy="'+(topY+8)+'" r="19" fill="'+color+'"/>';
+  }
+  if(shapeName==='peak'){
+    return '<path d="M'+(cx-15)+' '+(topY+12)+' L'+cx+' '+(topY-16)+' L'+(cx+15)+' '+(topY+12)+' Z" fill="'+color+'"/>';
+  }
+  return '';
+}
+function wingsSvg(shape, color){
+  var cx=100, cy=shape.cy-8, dark = shade(color,-20);
+  return '<path d="M'+(cx-shape.rx+8)+' '+(cy-5)+' C'+(cx-shape.rx-38)+' '+(cy-22)+','+(cx-shape.rx-48)+' '+(cy+8)+','+(cx-shape.rx-30)+' '+(cy+32)+
+    ' C'+(cx-shape.rx-18)+' '+(cy+14)+','+(cx-shape.rx-2)+' '+(cy+10)+','+(cx-shape.rx+10)+' '+(cy+16)+' Z" fill="'+dark+'" opacity=".92"/>'+
+    '<path d="M'+(cx+shape.rx-8)+' '+(cy-5)+' C'+(cx+shape.rx+38)+' '+(cy-22)+','+(cx+shape.rx+48)+' '+(cy+8)+','+(cx+shape.rx+30)+' '+(cy+32)+
+    ' C'+(cx+shape.rx+18)+' '+(cy+14)+','+(cx+shape.rx+2)+' '+(cy+10)+','+(cx+shape.rx-10)+' '+(cy+16)+' Z" fill="'+dark+'" opacity=".92"/>';
+}
+function tailSvg(shape, color){
+  var cx=100, baseX = cx+shape.rx*0.8, baseY = shape.cy+shape.ry*0.25;
+  return '<path d="M'+baseX+' '+baseY+' C'+(baseX+40)+' '+(baseY-8)+','+(baseX+58)+' '+(baseY-28)+','+(baseX+50)+' '+(baseY-46)+
+    ' C'+(baseX+42)+' '+(baseY-26)+','+(baseX+25)+' '+(baseY-16)+','+(baseX+8)+' '+(baseY-10)+' Z" fill="'+color+'"/>';
+}
+
 function monsterSvg(speciesId){
   var sp = SPECIES[speciesId];
   var color = bodyColorFor(sp);
   var dark = shade(color,-40), light = shade(color,35);
+  var primaryFam = sp.fams[0];
+  var shapeName = FAMILIES[primaryFam].shape;
+  var shape = SHAPES[shapeName];
   var hasKemo = sp.fams.indexOf('kemo')!==-1;
-  var tail = hasKemo ? '<path d="M155 150 C185 145,195 125,185 108 C180 128,168 138,150 140 Z" fill="'+color+'"/>' : '';
+  var hasAku = sp.fams.indexOf('aku')!==-1;
+
+  var tail = hasKemo ? tailSvg(shape, color) : '';
+  var wings = hasAku ? wingsSvg(shape, color) : '';
+  var decor = topDecorSvg(shapeName, shape, color);
+
+  // accent art (flame/drop/leaf/ear/horn) was drawn for a body whose top edge sits at y=65;
+  // shift it to match each shape's actual top edge so it visually sits ON the head, not floating above it
+  var accentShiftY = (shape.cy - shape.ry) - 65;
   var accentSvg;
   if(sp.fams.length===1){
     accentSvg = ACCENT_FN[FAMILIES[sp.fams[0]].accent](100, shade(FAMILIES[sp.fams[0]].color,-20));
@@ -240,18 +301,21 @@ function monsterSvg(speciesId){
     accentSvg = '<g transform="translate(-28,4) scale(0.82)">'+fn1(100, shade(FAMILIES[sp.fams[0]].color,-20))+'</g>'+
                 '<g transform="translate(28,4) scale(0.82)">'+fn2(100, shade(FAMILIES[sp.fams[1]].color,-20))+'</g>';
   }
+
   return '<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">'+
-    '<ellipse cx="100" cy="172" rx="55" ry="10" fill="rgba(0,0,0,.15)"/>'+
+    '<ellipse cx="100" cy="172" rx="'+Math.round(shape.rx*0.85)+'" ry="10" fill="rgba(0,0,0,.15)"/>'+
     tail+
-    '<ellipse cx="100" cy="120" rx="62" ry="55" fill="'+color+'"/>'+
-    '<ellipse cx="100" cy="100" rx="62" ry="42" fill="'+light+'" opacity=".55"/>'+
-    accentSvg+
+    decor+
+    '<ellipse cx="100" cy="'+shape.cy+'" rx="'+shape.rx+'" ry="'+shape.ry+'" fill="'+color+'"/>'+
+    '<ellipse cx="100" cy="'+Math.round(shape.cy-shape.ry*0.17)+'" rx="'+shape.rx+'" ry="'+Math.round(shape.ry*0.72)+'" fill="'+light+'" opacity=".5"/>'+
+    legsSvg(shape, dark)+
+    wings+
+    '<g transform="translate(0,'+accentShiftY+')">'+accentSvg+'</g>'+
     '<circle cx="76" cy="118" r="12" fill="#fff"/><circle cx="124" cy="118" r="12" fill="#fff"/>'+
     '<circle cx="79" cy="121" r="6.5" fill="'+dark+'"/><circle cx="127" cy="121" r="6.5" fill="'+dark+'"/>'+
     '<circle cx="81" cy="118" r="2" fill="#fff"/><circle cx="129" cy="118" r="2" fill="#fff"/>'+
     '<ellipse cx="65" cy="140" rx="9" ry="5" fill="#ff9d9d" opacity=".6"/><ellipse cx="135" cy="140" rx="9" ry="5" fill="#ff9d9d" opacity=".6"/>'+
     '<path d="M88 145 Q100 154 112 145" stroke="'+dark+'" stroke-width="3" fill="none" stroke-linecap="round"/>'+
-    '<g stroke="'+dark+'" stroke-width="9" stroke-linecap="round"><line x1="60" y1="160" x2="52" y2="175"/><line x1="140" y1="160" x2="148" y2="175"/></g>'+
   '</svg>';
 }
 
@@ -633,25 +697,42 @@ function renderPartySelect(){
   app.innerHTML = html;
 }
 
+var STAGES = [
+  { id:'plain',  name:'はらっぱ', icon:'🌾', minLv:1,  maxLv:5  },
+  { id:'forest', name:'しんりん', icon:'🌲', minLv:5,  maxLv:10 },
+  { id:'cave',   name:'どうくつ', icon:'⛰️', minLv:10, maxLv:15 },
+  { id:'peak',   name:'さんちょう', icon:'🏔️', minLv:15, maxLv:20 }
+];
+
 function renderWildIntro(){
   if(G.party.length===0){
     app.innerHTML = '<h1 class="title">🌿 やせいと たたかう</h1><div class="card">まず「パーティへんせい」で1匹いじょう えらんでね</div>'+
       '<div class="navRow"><div class="btn" data-action="go-party">パーティへんせいへ</div><div class="btn" data-action="back-home">もどる</div></div>';
     return;
   }
-  startWildBattle();
+  renderStageSelect();
 }
 
-function pickWildLevel(){
-  var lvls = G.party.map(function(uid){ return findMon(uid).level; });
-  var avg = lvls.reduce(function(a,b){return a+b;},0) / lvls.length;
-  var lo = Math.max(1, Math.round(avg)-2), hi = Math.max(lo+1, Math.round(avg)+1);
-  return Math.min(MAX_LEVEL, Math.max(1, lo + Math.floor(Math.random()*(hi-lo+1))));
+function renderStageSelect(){
+  var html = '<h1 class="title">🌿 ステージを えらんでね</h1>';
+  html += '<div class="card"><div class="navRow" style="flex-direction:column;align-items:stretch;">';
+  STAGES.forEach(function(stage){
+    html += '<div class="btn primary wide" data-action="start-wild" data-stage="'+stage.id+'" style="justify-content:space-between;margin-bottom:8px;">'+
+      '<span>'+stage.icon+' '+stage.name+'</span><span>Lv'+stage.minLv+'〜'+stage.maxLv+'</span></div>';
+  });
+  html += '</div></div>';
+  html += '<div class="navRow"><div class="btn" data-action="back-home">もどる</div></div>';
+  app.innerHTML = html;
 }
 
-function startWildBattle(){
+function pickWildLevel(stage){
+  return stage.minLv + Math.floor(Math.random()*(stage.maxLv-stage.minLv+1));
+}
+
+function startWildBattle(stageId){
+  var stage = STAGES.filter(function(s){ return s.id===stageId; })[0] || STAGES[0];
   var wildSpecies = BASE_SPECIES_IDS[Math.floor(Math.random()*BASE_SPECIES_IDS.length)];
-  var wildLevel = pickWildLevel();
+  var wildLevel = pickWildLevel(stage);
   var playerInstances = G.party.map(findMon);
   var teamPlayer = makeRuntimeTeam(playerInstances);
   var teamWild = makeRuntimeTeam([{ uid:'wild', speciesId:wildSpecies, level:wildLevel }]);
@@ -914,6 +995,7 @@ app.addEventListener('click', function(e){
     toast(SPECIES[speciesId].name+'を なかまにした！');
     render();
   } else if(action==='go-wild'){ G.screen='wild'; render(); }
+  else if(action==='start-wild'){ startWildBattle(el.getAttribute('data-stage')); }
   else if(action==='go-synth'){ G.synthSelect=[]; G.screen='synth'; render(); }
   else if(action==='go-party'){ G.screen='party'; render(); }
   else if(action==='go-online'){
