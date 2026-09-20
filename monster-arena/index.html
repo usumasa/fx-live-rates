@@ -557,7 +557,10 @@ function randomRoomCode(){
   return s;
 }
 function currentTeamInfo(){
-  return G.party.map(function(uid){ var m = findMon(uid); return { speciesId:m.speciesId, level:m.level, statBonus:m.statBonus, equippedSkillIndex:m.equippedSkillIndex }; });
+  // Firebase's real SDK throws synchronously if a value contains an explicit `undefined`
+  // (e.g. a party member that was never equipped with a move via the party screen) —
+  // normalize to 0 so a plain object literal here can never smuggle one into a .set() call.
+  return G.party.map(function(uid){ var m = findMon(uid); return { speciesId:m.speciesId, level:m.level, statBonus:m.statBonus, equippedSkillIndex: m.equippedSkillIndex==null ? 0 : m.equippedSkillIndex }; });
 }
 function runtimeTeamFromInfo(teamInfo){
   return makeRuntimeTeam(teamInfo.map(function(t,i){ return { uid:'p'+i, speciesId:t.speciesId, level:t.level, statBonus:t.statBonus, equippedSkillIndex:t.equippedSkillIndex }; }));
@@ -577,7 +580,7 @@ function createOnlineRoom(){
       attachRoomListener();
       render();
     }).catch(function(err){ toast('さくせいに しっぱいしたよ'); console.error(err); });
-  });
+  }).catch(function(err){ toast('さくせいに しっぱいしたよ'); console.error(err); });
 }
 
 function joinOnlineRoom(codeRaw){
@@ -598,7 +601,7 @@ function joinOnlineRoom(codeRaw){
         render();
       });
     }).catch(function(err){ toast('さんかに しっぱいしたよ'); console.error(err); });
-  });
+  }).catch(function(err){ toast('さんかに しっぱいしたよ'); console.error(err); });
 }
 
 function attachRoomListener(){
@@ -715,7 +718,7 @@ function cloudPushSilent(){
     if(!ok) return;
     fbDb.ref('saves/'+G.cloudSyncCode).set({ box:G.box, party:G.party, nextUid:G.nextUid, starterPicked:G.starterPicked, savedAt:Date.now() })
       .catch(function(err){ console.error(err); });
-  });
+  }).catch(function(err){ console.error(err); });
 }
 function cloudSave(){
   initFirebase().then(function(ok){
@@ -724,7 +727,7 @@ function cloudSave(){
     fbDb.ref('saves/'+code).set({ box:G.box, party:G.party, nextUid:G.nextUid, starterPicked:G.starterPicked, savedAt:Date.now() })
       .then(function(){ enableAutoCloudSync(code); toast('ほぞんしたよ！ このページを ブックマークしておいてね'); render(); })
       .catch(function(err){ toast('ほぞんに しっぱいしたよ'); console.error(err); });
-  });
+  }).catch(function(err){ toast('ほぞんに しっぱいしたよ'); console.error(err); });
 }
 function cloudLoad(codeRaw){
   initFirebase().then(function(ok){
@@ -742,7 +745,7 @@ function cloudLoad(codeRaw){
       G.screen = 'home';
       render();
     }).catch(function(err){ toast('復元に しっぱいしたよ'); console.error(err); });
-  });
+  }).catch(function(err){ toast('復元に しっぱいしたよ'); console.error(err); });
 }
 function cloudLoadSilent(code){
   initFirebase().then(function(ok){
@@ -756,7 +759,7 @@ function cloudLoadSilent(code){
       G.screen = G.starterPicked ? 'home' : 'title';
       render();
     }).catch(function(err){ console.error(err); });
-  });
+  }).catch(function(err){ console.error(err); });
 }
 
 /* ============================== STATE & PERSISTENCE ============================== */
