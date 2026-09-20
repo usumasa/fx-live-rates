@@ -504,11 +504,40 @@ var FIREBASE_CONFIG = {
 };
 function isFirebaseConfigured(){ return FIREBASE_CONFIG.apiKey.indexOf('YOUR_') !== 0; }
 var fbDb = null;
+var fbSdkPromise = null;
+// Some HTML preview/proxy hosts (e.g. htmlpreview.github.io) don't reliably execute this
+// page's own <script src=".../gstatic.com/..."> tags before this code runs — so instead of
+// trusting they already ran, load the SDK ourselves on demand and wait for it. A dynamically
+// created <script> element always fetches and executes normally regardless of how the
+// surrounding page was assembled, so this works everywhere the static tags would have.
+function loadFirebaseSdk(){
+  if(typeof firebase !== 'undefined') return Promise.resolve(true);
+  if(fbSdkPromise) return fbSdkPromise;
+  var urls = [
+    'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js',
+    'https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js'
+  ];
+  fbSdkPromise = urls.reduce(function(chain, url){
+    return chain.then(function(){
+      return new Promise(function(resolve){
+        var s = document.createElement('script');
+        s.src = url;
+        s.onload = function(){ resolve(true); };
+        s.onerror = function(){ resolve(false); };
+        document.head.appendChild(s);
+      });
+    });
+  }, Promise.resolve()).then(function(){ return typeof firebase !== 'undefined'; });
+  return fbSdkPromise;
+}
 function initFirebase(){
-  if(fbDb) return true;
-  if(!isFirebaseConfigured() || typeof firebase === 'undefined') return false;
-  try{ firebase.initializeApp(FIREBASE_CONFIG); fbDb = firebase.database(); return true; }
-  catch(e){ console.error(e); return false; }
+  if(fbDb) return Promise.resolve(true);
+  if(!isFirebaseConfigured()) return Promise.resolve(false);
+  return loadFirebaseSdk().then(function(loaded){
+    if(!loaded) return false;
+    try{ firebase.initializeApp(FIREBASE_CONFIG); fbDb = firebase.database(); return true; }
+    catch(e){ console.error(e); return false; }
+  });
 }
 
 var CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I, avoids look-alike mixups
@@ -525,37 +554,41 @@ function runtimeTeamFromInfo(teamInfo){
 }
 
 function createOnlineRoom(){
-  if(!initFirebase()){ toast('Firebaseの せっていが まだだよ（READMEをみてね）'); return; }
   if(G.party.length !== 3){ toast('パーティを3匹にしてね'); return; }
-  var code = randomRoomCode();
-  var seed = Math.floor(Math.random()*1e9);
-  var roomRef = fbDb.ref('rooms/'+code);
-  roomRef.set({ seed:seed, createdAt:Date.now(), host:{ team:currentTeamInfo() } }).then(function(){
-    G.online = { role:'host', code:code, seed:seed, roomRef:roomRef, hostTeamInfo:currentTeamInfo(), guestTeamInfo:null,
-      hostTeam:null, guestTeam:null, resolvedTurn:0, mySubmittedTurn:-1, log:[], ended:false, result:null, showSwitchMenu:false };
-    G.screen = 'onlineBattle';
-    attachRoomListener();
-    render();
-  }).catch(function(err){ toast('さくせいに しっぱいしたよ'); console.error(err); });
-}
-
-function joinOnlineRoom(codeRaw){
-  if(!initFirebase()){ toast('Firebaseの せっていが まだだよ（READMEをみてね）'); return; }
-  if(G.party.length !== 3){ toast('パーティを3匹にしてね'); return; }
-  var code = codeRaw.toUpperCase();
-  var roomRef = fbDb.ref('rooms/'+code);
-  roomRef.once('value').then(function(snap){
-    var val = snap.val();
-    if(!val){ toast('その コードは みつからないよ'); return; }
-    if(val.guest){ toast('その へやは まんいんだよ'); return; }
-    return roomRef.child('guest').set({ team:currentTeamInfo() }).then(function(){
-      G.online = { role:'guest', code:code, seed:val.seed, roomRef:roomRef, hostTeamInfo:val.host.team, guestTeamInfo:currentTeamInfo(),
+  initFirebase().then(function(ok){
+    if(!ok){ toast('Firebaseの せっていが まだだよ（READMEをみてね）'); return; }
+    var code = randomRoomCode();
+    var seed = Math.floor(Math.random()*1e9);
+    var roomRef = fbDb.ref('rooms/'+code);
+    roomRef.set({ seed:seed, createdAt:Date.now(), host:{ team:currentTeamInfo() } }).then(function(){
+      G.online = { role:'host', code:code, seed:seed, roomRef:roomRef, hostTeamInfo:currentTeamInfo(), guestTeamInfo:null,
         hostTeam:null, guestTeam:null, resolvedTurn:0, mySubmittedTurn:-1, log:[], ended:false, result:null, showSwitchMenu:false };
       G.screen = 'onlineBattle';
       attachRoomListener();
       render();
-    });
-  }).catch(function(err){ toast('さんかに しっぱいしたよ'); console.error(err); });
+    }).catch(function(err){ toast('さくせいに しっぱいしたよ'); console.error(err); });
+  });
+}
+
+function joinOnlineRoom(codeRaw){
+  if(G.party.length !== 3){ toast('パーティを3匹にしてね'); return; }
+  initFirebase().then(function(ok){
+    if(!ok){ toast('Firebaseの せっていが まだだよ（READMEをみてね）'); return; }
+    var code = codeRaw.toUpperCase();
+    var roomRef = fbDb.ref('rooms/'+code);
+    roomRef.once('value').then(function(snap){
+      var val = snap.val();
+      if(!val){ toast('その コードは みつからないよ'); return; }
+      if(val.guest){ toast('その へやは まんいんだよ'); return; }
+      return roomRef.child('guest').set({ team:currentTeamInfo() }).then(function(){
+        G.online = { role:'guest', code:code, seed:val.seed, roomRef:roomRef, hostTeamInfo:val.host.team, guestTeamInfo:currentTeamInfo(),
+          hostTeam:null, guestTeam:null, resolvedTurn:0, mySubmittedTurn:-1, log:[], ended:false, result:null, showSwitchMenu:false };
+        G.screen = 'onlineBattle';
+        attachRoomListener();
+        render();
+      });
+    }).catch(function(err){ toast('さんかに しっぱいしたよ'); console.error(err); });
+  });
 }
 
 function attachRoomListener(){
@@ -667,44 +700,53 @@ function enableAutoCloudSync(code){
   updateUrlWithCloudCode(code);
 }
 function cloudPushSilent(){
-  if(!G.cloudSyncCode || !initFirebase()) return;
-  fbDb.ref('saves/'+G.cloudSyncCode).set({ box:G.box, party:G.party, nextUid:G.nextUid, starterPicked:G.starterPicked, savedAt:Date.now() })
-    .catch(function(err){ console.error(err); });
+  if(!G.cloudSyncCode) return;
+  initFirebase().then(function(ok){
+    if(!ok) return;
+    fbDb.ref('saves/'+G.cloudSyncCode).set({ box:G.box, party:G.party, nextUid:G.nextUid, starterPicked:G.starterPicked, savedAt:Date.now() })
+      .catch(function(err){ console.error(err); });
+  });
 }
 function cloudSave(){
-  if(!initFirebase()){ toast('Firebaseの せっていが まだだよ（READMEをみてね）'); return; }
-  var code = getOrCreateCloudCode();
-  fbDb.ref('saves/'+code).set({ box:G.box, party:G.party, nextUid:G.nextUid, starterPicked:G.starterPicked, savedAt:Date.now() })
-    .then(function(){ enableAutoCloudSync(code); toast('ほぞんしたよ！ このページを ブックマークしておいてね'); render(); })
-    .catch(function(err){ toast('ほぞんに しっぱいしたよ'); console.error(err); });
+  initFirebase().then(function(ok){
+    if(!ok){ toast('Firebaseの せっていが まだだよ（READMEをみてね）'); return; }
+    var code = getOrCreateCloudCode();
+    fbDb.ref('saves/'+code).set({ box:G.box, party:G.party, nextUid:G.nextUid, starterPicked:G.starterPicked, savedAt:Date.now() })
+      .then(function(){ enableAutoCloudSync(code); toast('ほぞんしたよ！ このページを ブックマークしておいてね'); render(); })
+      .catch(function(err){ toast('ほぞんに しっぱいしたよ'); console.error(err); });
+  });
 }
 function cloudLoad(codeRaw){
-  if(!initFirebase()){ toast('Firebaseの せっていが まだだよ（READMEをみてね）'); return; }
-  var code = codeRaw.toUpperCase();
-  fbDb.ref('saves/'+code).once('value').then(function(snap){
-    var val = snap.val();
-    if(!val){ toast('その コードの データは みつからないよ'); return; }
-    G.box = val.box||[]; G.party = val.party||[]; G.nextUid = val.nextUid||1; G.starterPicked = !!val.starterPicked;
-    G.box.forEach(function(m){ if(!m.statBonus){ m.statBonus = defaultStatBonus(m.level); } });
-    enableAutoCloudSync(code);
-    save();
-    toast('復元したよ！ このページを ブックマークしておいてね');
-    G.cloudLoadConfirming = false;
-    G.screen = 'home';
-    render();
-  }).catch(function(err){ toast('復元に しっぱいしたよ'); console.error(err); });
+  initFirebase().then(function(ok){
+    if(!ok){ toast('Firebaseの せっていが まだだよ（READMEをみてね）'); return; }
+    var code = codeRaw.toUpperCase();
+    fbDb.ref('saves/'+code).once('value').then(function(snap){
+      var val = snap.val();
+      if(!val){ toast('その コードの データは みつからないよ'); return; }
+      G.box = val.box||[]; G.party = val.party||[]; G.nextUid = val.nextUid||1; G.starterPicked = !!val.starterPicked;
+      G.box.forEach(function(m){ if(!m.statBonus){ m.statBonus = defaultStatBonus(m.level); } });
+      enableAutoCloudSync(code);
+      save();
+      toast('復元したよ！ このページを ブックマークしておいてね');
+      G.cloudLoadConfirming = false;
+      G.screen = 'home';
+      render();
+    }).catch(function(err){ toast('復元に しっぱいしたよ'); console.error(err); });
+  });
 }
 function cloudLoadSilent(code){
-  if(!initFirebase()) return;
-  fbDb.ref('saves/'+code.toUpperCase()).once('value').then(function(snap){
-    var val = snap.val();
-    if(!val) return; // brand-new bookmark with nothing saved under this code yet
-    G.box = val.box||[]; G.party = val.party||[]; G.nextUid = val.nextUid||1; G.starterPicked = !!val.starterPicked;
-    G.box.forEach(function(m){ if(!m.statBonus){ m.statBonus = defaultStatBonus(m.level); } });
-    try{ localStorage.setItem(SAVE_KEY, JSON.stringify({ box:G.box, party:G.party, nextUid:G.nextUid, starterPicked:G.starterPicked })); }catch(e){}
-    G.screen = G.starterPicked ? 'home' : 'title';
-    render();
-  }).catch(function(err){ console.error(err); });
+  initFirebase().then(function(ok){
+    if(!ok) return;
+    fbDb.ref('saves/'+code.toUpperCase()).once('value').then(function(snap){
+      var val = snap.val();
+      if(!val) return; // brand-new bookmark with nothing saved under this code yet
+      G.box = val.box||[]; G.party = val.party||[]; G.nextUid = val.nextUid||1; G.starterPicked = !!val.starterPicked;
+      G.box.forEach(function(m){ if(!m.statBonus){ m.statBonus = defaultStatBonus(m.level); } });
+      try{ localStorage.setItem(SAVE_KEY, JSON.stringify({ box:G.box, party:G.party, nextUid:G.nextUid, starterPicked:G.starterPicked })); }catch(e){}
+      G.screen = G.starterPicked ? 'home' : 'title';
+      render();
+    }).catch(function(err){ console.error(err); });
+  });
 }
 
 /* ============================== STATE & PERSISTENCE ============================== */
