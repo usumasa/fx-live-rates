@@ -46,6 +46,13 @@
   .btn:disabled, .btn.disabled{ opacity:.4; pointer-events:none; }
 
   h1.title{ font-size:22px; margin:4px 0 12px; text-align:center; }
+  .helpFab{
+    position:fixed; top:calc(10px + env(safe-area-inset-top,0px)); right:14px;
+    width:38px; height:38px; border-radius:50%; background:#fff8e6; border:3px solid var(--accent);
+    display:flex; align-items:center; justify-content:center; font-size:17px; font-weight:900; color:#5a4020;
+    box-shadow:0 4px 0 rgba(0,0,0,.15); cursor:pointer; user-select:none; -webkit-user-select:none; z-index:50;
+  }
+  .helpFab:active{ transform:translateY(2px); box-shadow:0 2px 0 rgba(0,0,0,.15); }
   h2.section{ font-size:16px; margin:16px 0 8px; align-self:flex-start; }
 
   .card{
@@ -892,8 +899,8 @@ function render(){
 }
 
 function renderTitle(){
-  var html = '<h1 class="title">🐲 モンスターアリーナ</h1>';
-  html += '<div class="navRow"><div class="btn" data-action="go-help">❓ ヘルプ</div></div>';
+  var html = '<div class="helpFab" data-action="go-help">❓</div>';
+  html += '<h1 class="title">🐲 モンスターアリーナ</h1>';
   html += '<div class="card"><h2 class="section" style="margin-top:0">さいしょの1匹をえらんでね</h2>';
   html += '<div class="grid">';
   BASE_SPECIES_IDS.forEach(function(id){
@@ -908,14 +915,16 @@ function renderTitle(){
 }
 
 function renderHome(){
-  var html = '<h1 class="title">🐲 モンスターアリーナ</h1>';
+  var html = '<div class="helpFab" data-action="go-help">❓</div>';
+  html += '<h1 class="title">🐲 モンスターアリーナ</h1>';
   html += '<div class="navRow">'+
     '<div class="btn primary" data-action="go-wild">🌿 やせいと たたかう</div>'+
     '<div class="btn primary" data-action="go-synth">🧪 ごうせい</div>'+
     '<div class="btn primary" data-action="go-party">⚔️ パーティへんせい</div>'+
+  '</div>';
+  html += '<div class="navRow">'+
     '<div class="btn" data-action="go-online">🌐 オンラインたいせん</div>'+
     '<div class="btn" data-action="go-cloud">☁️ クラウドセーブ</div>'+
-    '<div class="btn" data-action="go-help">❓ ヘルプ</div>'+
   '</div>';
   html += '<h2 class="section">ボックス（'+G.box.length+'匹）タップで のうりょくを みる</h2>';
   html += '<div class="grid">';
