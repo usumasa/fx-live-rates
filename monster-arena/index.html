@@ -645,11 +645,37 @@ function getOrCreateCloudCode(){
     return code;
   }catch(e){ return randomCloudCode(); }
 }
+// Safari private mode (and similar) wipes localStorage when the window closes, so plain
+// auto-load-on-boot can't survive that. Once the player has touched cloud save, we keep the
+// code in the URL itself (?code=XXXXX) and silently push every save() to it — a bookmarked
+// URL survives private mode even though localStorage doesn't, so re-opening that bookmark
+// restores everything with no manual save/load step needed.
+function getUrlCloudCode(){
+  try{ var c = new URLSearchParams(location.search).get('code'); return c ? c.toUpperCase() : null; }
+  catch(e){ return null; }
+}
+function updateUrlWithCloudCode(code){
+  try{
+    var url = new URL(location.href);
+    url.searchParams.set('code', code);
+    history.replaceState(null, '', url.toString());
+  }catch(e){}
+}
+function enableAutoCloudSync(code){
+  G.cloudSyncCode = code;
+  try{ localStorage.setItem(CLOUD_CODE_KEY, code); }catch(e){}
+  updateUrlWithCloudCode(code);
+}
+function cloudPushSilent(){
+  if(!G.cloudSyncCode || !initFirebase()) return;
+  fbDb.ref('saves/'+G.cloudSyncCode).set({ box:G.box, party:G.party, nextUid:G.nextUid, starterPicked:G.starterPicked, savedAt:Date.now() })
+    .catch(function(err){ console.error(err); });
+}
 function cloudSave(){
   if(!initFirebase()){ toast('Firebaseの せっていが まだだよ（READMEをみてね）'); return; }
   var code = getOrCreateCloudCode();
   fbDb.ref('saves/'+code).set({ box:G.box, party:G.party, nextUid:G.nextUid, starterPicked:G.starterPicked, savedAt:Date.now() })
-    .then(function(){ toast('ほぞんしたよ！'); render(); })
+    .then(function(){ enableAutoCloudSync(code); toast('ほぞんしたよ！ このページを ブックマークしておいてね'); render(); })
     .catch(function(err){ toast('ほぞんに しっぱいしたよ'); console.error(err); });
 }
 function cloudLoad(codeRaw){
@@ -660,13 +686,25 @@ function cloudLoad(codeRaw){
     if(!val){ toast('その コードの データは みつからないよ'); return; }
     G.box = val.box||[]; G.party = val.party||[]; G.nextUid = val.nextUid||1; G.starterPicked = !!val.starterPicked;
     G.box.forEach(function(m){ if(!m.statBonus){ m.statBonus = defaultStatBonus(m.level); } });
-    try{ localStorage.setItem(CLOUD_CODE_KEY, code); }catch(e){}
+    enableAutoCloudSync(code);
     save();
-    toast('復元したよ！');
+    toast('復元したよ！ このページを ブックマークしておいてね');
     G.cloudLoadConfirming = false;
     G.screen = 'home';
     render();
   }).catch(function(err){ toast('復元に しっぱいしたよ'); console.error(err); });
+}
+function cloudLoadSilent(code){
+  if(!initFirebase()) return;
+  fbDb.ref('saves/'+code.toUpperCase()).once('value').then(function(snap){
+    var val = snap.val();
+    if(!val) return; // brand-new bookmark with nothing saved under this code yet
+    G.box = val.box||[]; G.party = val.party||[]; G.nextUid = val.nextUid||1; G.starterPicked = !!val.starterPicked;
+    G.box.forEach(function(m){ if(!m.statBonus){ m.statBonus = defaultStatBonus(m.level); } });
+    try{ localStorage.setItem(SAVE_KEY, JSON.stringify({ box:G.box, party:G.party, nextUid:G.nextUid, starterPicked:G.starterPicked })); }catch(e){}
+    G.screen = G.starterPicked ? 'home' : 'title';
+    render();
+  }).catch(function(err){ console.error(err); });
 }
 
 /* ============================== STATE & PERSISTENCE ============================== */
@@ -686,6 +724,7 @@ function save(){
   try{
     localStorage.setItem(SAVE_KEY, JSON.stringify({ box:G.box, party:G.party, nextUid:G.nextUid, starterPicked:G.starterPicked }));
   }catch(e){}
+  if(G.cloudSyncCode) cloudPushSilent();
 }
 function load(){
   try{
@@ -1176,6 +1215,18 @@ function renderCloudSave(){
     '<div class="navRow"><div class="btn primary wide" data-action="cloud-save">☁️ いまのデータを ほぞんする</div></div>'+
   '</div>';
 
+  if(G.cloudSyncCode){
+    html += '<div class="card" style="border-color:#2b9e4a;">'+
+      '<p style="margin:0 0 8px;font-size:13px;font-weight:bold;color:#2b9e4a;">✅ じどう ほぞん ON</p>'+
+      '<p style="margin:0 0 8px;font-size:12px;">プライベートモードなど ブラウザを とじると きえる せっていでも、<b>このページを ブックマーク</b>しておけば つぎに ひらいたとき じどうで つづきから はじまるよ。</p>'+
+      '<div style="font-size:11px;word-break:break-all;background:#f5f0e0;padding:8px;border-radius:8px;">'+location.href+'</div>'+
+    '</div>';
+  } else {
+    html += '<div class="card">'+
+      '<p style="margin:0;font-size:12px;">↑ 「ほぞんする」を いちど おすと、この ページの URLに コードが つくよ。そのURLを ブックマークしておけば、プライベートモードで ブラウザを とじても じどうで データが もどってくるよ。</p>'+
+    '</div>';
+  }
+
   html += '<div class="card">'+
     '<h2 class="section" style="margin-top:0;">べつのコードから ふっかつ</h2>'+
     '<input id="cloudCodeInput" maxlength="6" placeholder="ABCDEF" autocapitalize="characters" value="'+(G.cloudLoadPendingCode||'')+'" '+
@@ -1410,7 +1461,14 @@ app.addEventListener('click', function(e){
 function boot(){
   var hasSave = load();
   G.screen = hasSave ? 'home' : 'title';
-  render();
+  var urlCode = getUrlCloudCode();
+  if(urlCode){
+    G.cloudSyncCode = urlCode;
+    render();
+    cloudLoadSilent(urlCode);
+  } else {
+    render();
+  }
 }
 boot();
 </script>

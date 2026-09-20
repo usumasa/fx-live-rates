@@ -81,3 +81,11 @@ by code, with no sign-in on either side.
   box/party to that code, or enter someone else's (or your own, from
   another device) code and tap **ふっかつする** to restore it — this
   overwrites local data, so it asks for confirmation first.
+- **Surviving private browsing**: Safari (and other browsers') private
+  mode wipes `localStorage` as soon as the window closes, so the normal
+  auto-save can't survive that. The first time you tap **ほぞんする** (or
+  restore from a code), the page's own URL gets a `?code=XXXXXX` appended
+  and every save from then on is silently pushed to that code too.
+  Bookmark the page at that point — reopening the bookmark (even in a
+  fresh private window) reads the code from the URL and restores your
+  data automatically, no button presses needed.
