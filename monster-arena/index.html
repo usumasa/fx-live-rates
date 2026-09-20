@@ -134,54 +134,59 @@ function typeMultiplier(aFam, dFam){
   return 1;
 }
 function mkMove(name, power, uses, unlockLevel){ return { name:name, power:power, uses: uses||null, unlockLevel: unlockLevel||1 }; }
+// support moves boost the whole team (not just the active monster) for a few hits, so the
+// boost is still there after switching; see BUFF_MULTIPLIER/BUFF_DURATION in the battle engine
+function mkSupportMove(name, statKey, uses, unlockLevel){ return { name:name, power:0, uses:uses, unlockLevel:unlockLevel, kind:'support', statKey:statKey }; }
+function atkCry(){ return mkSupportMove("とうこんのさけび","atk",3,15); }
+function defWall(){ return mkSupportMove("てっぺきのかまえ","def",3,15); }
 
 var SPECIES = {
   flame:   { name:"ヒノコ",     fams:["hono"],       base:{hp:10,atk:8,def:4,spd:5}, growth:{hp:3,atk:2,def:1,spd:1.5},
              attack:mkMove("ひっかき",1.0),
-             moves:[ mkMove("ひのたま",1.6,3,1), mkMove("おおひのたま",2.0,2,10), mkMove("えんごくのほのお",2.6,1,20) ] },
+             moves:[ mkMove("ひのたま",1.6,3,1), mkMove("おおひのたま",2.0,2,10), atkCry(), mkMove("えんごくのほのお",2.6,1,20) ] },
   aqua:    { name:"ポチャポン", fams:["mizu"],       base:{hp:12,atk:5,def:8,spd:4}, growth:{hp:3,atk:1.5,def:2,spd:1},
              attack:mkMove("たいあたり",1.0),
-             moves:[ mkMove("みずでっぽう",1.6,3,1), mkMove("うずしお",2.0,2,10), mkMove("だいかいしょう",2.6,1,20) ] },
+             moves:[ mkMove("みずでっぽう",1.6,3,1), mkMove("うずしお",2.0,2,10), defWall(), mkMove("だいかいしょう",2.6,1,20) ] },
   leaf:    { name:"ハッパン",   fams:["kusa"],       base:{hp:14,atk:5,def:6,spd:4}, growth:{hp:3.5,atk:1.5,def:1.5,spd:1},
              attack:mkMove("たいあたり",1.0),
-             moves:[ mkMove("はっぱカッター",1.6,3,1), mkMove("つるのムチ",2.0,2,10), mkMove("だいしぜんのいかり",2.6,1,20) ] },
+             moves:[ mkMove("はっぱカッター",1.6,3,1), mkMove("つるのムチ",2.0,2,10), defWall(), mkMove("だいしぜんのいかり",2.6,1,20) ] },
   beast:   { name:"キバウル",   fams:["kemo"],       base:{hp:10,atk:6,def:4,spd:8}, growth:{hp:2.5,atk:1.5,def:1,spd:2},
              attack:mkMove("ひっかき",1.0),
-             moves:[ mkMove("れんぞくアタック",1.6,3,1), mkMove("きょうぼうがみつき",2.0,2,10), mkMove("げきりんのつめ",2.6,1,20) ] },
+             moves:[ mkMove("れんぞくアタック",1.6,3,1), mkMove("きょうぼうがみつき",2.0,2,10), atkCry(), mkMove("げきりんのつめ",2.6,1,20) ] },
   dark:    { name:"マガトル",   fams:["aku"],        base:{hp:8,atk:9,def:4,spd:6},  growth:{hp:2,atk:2.5,def:1,spd:1.5},
              attack:mkMove("たいあたり",1.0),
-             moves:[ mkMove("あくまのつめ",1.6,3,1), mkMove("あんこくげり",2.0,2,10), mkMove("まおうのいかり",2.6,1,20) ] },
+             moves:[ mkMove("あくまのつめ",1.6,3,1), mkMove("あんこくげり",2.0,2,10), atkCry(), mkMove("まおうのいかり",2.6,1,20) ] },
 
   steam:    { name:"ユゲムー",   fams:["hono","mizu"], base:{hp:11,atk:7,def:6,spd:5}, growth:{hp:3,atk:2,def:1.5,spd:1.5},
               attack:mkMove("たいあたり",1.0),
-              moves:[ mkMove("スチームブラスト",1.6,3,1), mkMove("じょうききり",2.0,2,10), mkMove("だいばくはつじょうき",2.6,1,20) ] },
+              moves:[ mkMove("スチームブラスト",1.6,3,1), mkMove("じょうききり",2.0,2,10), atkCry(), mkMove("だいばくはつじょうき",2.6,1,20) ] },
   scorch:   { name:"コゲッパ",   fams:["hono","kusa"], base:{hp:12,atk:7,def:5,spd:5}, growth:{hp:3,atk:2,def:1,spd:1},
               attack:mkMove("ひっかき",1.0),
-              moves:[ mkMove("こげくさアタック",1.6,3,1), mkMove("はいじんあらし",2.0,2,10), mkMove("だいえんじょう",2.6,1,20) ] },
+              moves:[ mkMove("こげくさアタック",1.6,3,1), mkMove("はいじんあらし",2.0,2,10), atkCry(), mkMove("だいえんじょう",2.6,1,20) ] },
   wildfire: { name:"モウカロン", fams:["hono","kemo"], base:{hp:10,atk:7,def:4,spd:7}, growth:{hp:3,atk:2,def:1,spd:2},
               attack:mkMove("ひっかき",1.0),
-              moves:[ mkMove("もうかえん",1.6,3,1), mkMove("れっかしん",2.0,2,10), mkMove("のやきつくし",2.6,1,20) ] },
+              moves:[ mkMove("もうかえん",1.6,3,1), mkMove("れっかしん",2.0,2,10), atkCry(), mkMove("のやきつくし",2.6,1,20) ] },
   hellfire: { name:"エンマヒ",   fams:["hono","aku"],  base:{hp:9,atk:9,def:4,spd:6},  growth:{hp:2.5,atk:2,def:1,spd:1.5},
               attack:mkMove("たいあたり",1.0),
-              moves:[ mkMove("ごうかのほのお",1.6,3,1), mkMove("じごくのほのお",2.0,2,10), mkMove("えんまのさばき",2.6,1,20) ] },
+              moves:[ mkMove("ごうかのほのお",1.6,3,1), mkMove("じごくのほのお",2.0,2,10), atkCry(), mkMove("えんまのさばき",2.6,1,20) ] },
   swamp:    { name:"ドロモリ",   fams:["mizu","kusa"], base:{hp:13,atk:5,def:7,spd:4}, growth:{hp:3,atk:1.5,def:2,spd:1},
               attack:mkMove("たいあたり",1.0),
-              moves:[ mkMove("どろなみ",1.6,3,1), mkMove("ぬまのわな",2.0,2,10), mkMove("おおぬまじごく",2.6,1,20) ] },
+              moves:[ mkMove("どろなみ",1.6,3,1), mkMove("ぬまのわな",2.0,2,10), defWall(), mkMove("おおぬまじごく",2.6,1,20) ] },
   otter:    { name:"ラッコロ",   fams:["mizu","kemo"], base:{hp:11,atk:6,def:6,spd:6}, growth:{hp:3,atk:1.5,def:1.5,spd:1.5},
               attack:mkMove("たいあたり",1.0),
-              moves:[ mkMove("アクアテール",1.6,3,1), mkMove("かいりゅうしょうげき",2.0,2,10), mkMove("だいうずしお",2.6,1,20) ] },
+              moves:[ mkMove("アクアテール",1.6,3,1), mkMove("かいりゅうしょうげき",2.0,2,10), defWall(), mkMove("だいうずしお",2.6,1,20) ] },
   abyss:    { name:"ヤミウズ",   fams:["mizu","aku"],  base:{hp:10,atk:7,def:6,spd:5}, growth:{hp:2.5,atk:2,def:1.5,spd:1},
               attack:mkMove("たいあたり",1.0),
-              moves:[ mkMove("あんこくウェーブ",1.6,3,1), mkMove("しんえんのちから",2.0,2,10), mkMove("ぜつぼうのふち",2.6,1,20) ] },
+              moves:[ mkMove("あんこくウェーブ",1.6,3,1), mkMove("しんえんのちから",2.0,2,10), defWall(), mkMove("ぜつぼうのふち",2.6,1,20) ] },
   sprout:   { name:"モフバナ",   fams:["kusa","kemo"], base:{hp:12,atk:6,def:5,spd:6}, growth:{hp:3,atk:1.5,def:1,spd:1.5},
               attack:mkMove("たいあたり",1.0),
-              moves:[ mkMove("はなふぶき",1.6,3,1), mkMove("せいめいのはどう",2.0,2,10), mkMove("だいちのめぐみ",2.6,1,20) ] },
+              moves:[ mkMove("はなふぶき",1.6,3,1), mkMove("せいめいのはどう",2.0,2,10), defWall(), mkMove("だいちのめぐみ",2.6,1,20) ] },
   thorn:    { name:"トゲドク",   fams:["kusa","aku"],  base:{hp:11,atk:7,def:5,spd:5}, growth:{hp:3,atk:2,def:1,spd:1},
               attack:mkMove("たいあたり",1.0),
-              moves:[ mkMove("どくのトゲ",1.6,3,1), mkMove("もうどくのきり",2.0,2,10), mkMove("ぜつぼうのどく",2.6,1,20) ] },
+              moves:[ mkMove("どくのトゲ",1.6,3,1), mkMove("もうどくのきり",2.0,2,10), defWall(), mkMove("ぜつぼうのどく",2.6,1,20) ] },
   werewolf: { name:"ガルナイト", fams:["kemo","aku"],  base:{hp:9,atk:8,def:4,spd:7},  growth:{hp:2,atk:2,def:1,spd:2},
               attack:mkMove("ひっかき",1.0),
-              moves:[ mkMove("ムーンファング",1.6,3,1), mkMove("まんげつげきりん",2.0,2,10), mkMove("えいごうのおおかみ",2.6,1,20) ] }
+              moves:[ mkMove("ムーンファング",1.6,3,1), mkMove("まんげつげきりん",2.0,2,10), atkCry(), mkMove("えいごうのおおかみ",2.6,1,20) ] }
 };
 
 var SYNTHESIS_TABLE = {};
@@ -392,7 +397,9 @@ function toRuntime(inst){
   var skillIdx = equippedMoveIndex(inst.speciesId, inst);
   return { uid:inst.uid, speciesId:inst.speciesId, level:inst.level, stats:stats, maxHp:stats.hp, currentHp:stats.hp, skillIndex:skillIdx, skillUses:sp.moves[skillIdx].uses };
 }
-function makeRuntimeTeam(instances){ return { monsters: instances.map(toRuntime), activeIndex:0 }; }
+function makeRuntimeTeam(instances){ return { monsters: instances.map(toRuntime), activeIndex:0, buffs:{ atk:{turnsLeft:0}, def:{turnsLeft:0} } }; }
+var BUFF_MULTIPLIER = 1.5;
+var BUFF_DURATION = 3; // number of the buffed side's own attacks (ATK) or hits taken (DEF) it lasts through
 function aliveIndices(team){ var out=[]; team.monsters.forEach(function(m,i){ if(m.currentHp>0) out.push(i); }); return out; }
 function isDefeated(team){ return aliveIndices(team).length===0; }
 
@@ -421,9 +428,20 @@ function resolveTurn(teamA, actionA, teamB, actionB, rng){
     var sp = SPECIES[attacker.speciesId];
     var move = action.type==='skill' ? sp.moves[attacker.skillIndex] : sp.attack;
     if(action.type==='skill'){ if(attacker.skillUses<=0){ move = sp.attack; } else { attacker.skillUses--; } }
+
+    if(move.kind==='support'){
+      attackerTeam.buffs[move.statKey].turnsLeft = BUFF_DURATION;
+      log.push({type:'support', side:side, attackerName:SPECIES[attacker.speciesId].name, moveName:move.name, statKey:move.statKey});
+      return;
+    }
+
     var defender = defenderTeam.monsters[defenderTeam.activeIndex];
     if(!defender || defender.currentHp<=0) return;
-    var result = computeDamage(attacker.speciesId, defender.speciesId, move.power, attacker.stats.atk, defender.stats.def, rng);
+    var atkBuff = attackerTeam.buffs.atk, atkMult = 1;
+    if(atkBuff.turnsLeft>0){ atkMult = BUFF_MULTIPLIER; atkBuff.turnsLeft--; }
+    var defBuff = defenderTeam.buffs.def, defMult = 1;
+    if(defBuff.turnsLeft>0){ defMult = BUFF_MULTIPLIER; defBuff.turnsLeft--; }
+    var result = computeDamage(attacker.speciesId, defender.speciesId, move.power, attacker.stats.atk*atkMult, defender.stats.def*defMult, rng);
     defender.currentHp = Math.max(0, defender.currentHp - result.damage);
     log.push({type:'move', side:side, attackerName:SPECIES[attacker.speciesId].name, moveName:move.name, damage:result.damage, multiplier:result.multiplier});
     if(defender.currentHp<=0){ log.push({type:'faint', side: side==='A'?'B':'A', name:SPECIES[defender.speciesId].name}); }
@@ -448,6 +466,10 @@ function formatLogEntry(entry, viewerIsA){
   var mine = (entry.side==='A') === viewerIsA;
   if(entry.type==='switch') return (mine?'あなた':'あいて')+'は '+entry.name+' にこうたいした！';
   if(entry.type==='faint') return entry.name+'は たおれた！';
+  if(entry.type==='support'){
+    var statName = entry.statKey==='atk' ? 'こうげき' : 'ぼうぎょ';
+    return (mine?'あなた':'あいて')+'の '+entry.attackerName+'の '+entry.moveName+'！ みかたぜんいんの '+statName+'が あがった！';
+  }
   var eff = entry.multiplier>1 ? '(こうかは ばつぐんだ！)' : (entry.multiplier<1 ? '(こうかは いまひとつ...)' : '');
   return (mine?'あなた':'あいて')+'の '+entry.attackerName+'の '+entry.moveName+'！ '+entry.damage+'ダメージ '+eff;
 }
@@ -907,6 +929,12 @@ function renderHpBar(m){
   return '<div class="hpBarOuter"><div class="hpBarInner '+cls+'" style="width:'+pct+'%"></div></div>'+
          '<div class="hpText">HP '+m.currentHp+' / '+m.maxHp+'</div>';
 }
+function renderBuffBadges(team){
+  var out = '';
+  if(team.buffs.atk.turnsLeft>0) out += '<span class="familyTag" style="background:#e85d04;">🔺こうげき</span>';
+  if(team.buffs.def.turnsLeft>0) out += '<span class="familyTag" style="background:#2b6cb0;">🛡️ぼうぎょ</span>';
+  return out;
+}
 
 function renderBattle(){
   var b = G.battle;
@@ -916,8 +944,8 @@ function renderBattle(){
 
   var html = '<h1 class="title">'+(b.mode==='wild' ? '🌿 やせいの たたかい' : '⚔️ たいせん')+'</h1>';
   html += '<div class="battleField">';
-  html += '<div class="battleSide enemy"><div class="monWrap">'+monsterSvg(e.speciesId)+'</div><div class="info"><b>'+spE.name+'</b> Lv'+e.level+' '+famTagsHtml(spE)+renderHpBar(e)+'</div></div>';
-  html += '<div class="battleSide"><div class="monWrap">'+monsterSvg(a.speciesId)+'</div><div class="info"><b>'+spA.name+'</b> Lv'+a.level+' '+famTagsHtml(spA)+renderHpBar(a)+'</div></div>';
+  html += '<div class="battleSide enemy"><div class="monWrap">'+monsterSvg(e.speciesId)+'</div><div class="info"><b>'+spE.name+'</b> Lv'+e.level+' '+famTagsHtml(spE)+renderBuffBadges(b.teamB)+renderHpBar(e)+'</div></div>';
+  html += '<div class="battleSide"><div class="monWrap">'+monsterSvg(a.speciesId)+'</div><div class="info"><b>'+spA.name+'</b> Lv'+a.level+' '+famTagsHtml(spA)+renderBuffBadges(b.teamA)+renderHpBar(a)+'</div></div>';
   html += '</div>';
 
   html += '<div id="battleLog">'+b.log.slice(-4).map(function(l){return '<div>'+l+'</div>';}).join('')+'</div>';
@@ -1078,8 +1106,8 @@ function renderOnlineBattle(){
 
   var html = '<h1 class="title">🌐 オンラインたいせん</h1>';
   html += '<div class="battleField">';
-  html += '<div class="battleSide enemy"><div class="monWrap">'+monsterSvg(opp.speciesId)+'</div><div class="info"><b>'+spOpp.name+'</b> Lv'+opp.level+' '+famTagsHtml(spOpp)+renderHpBar(opp)+'</div></div>';
-  html += '<div class="battleSide"><div class="monWrap">'+monsterSvg(my.speciesId)+'</div><div class="info"><b>'+spMy.name+'</b> Lv'+my.level+' '+famTagsHtml(spMy)+renderHpBar(my)+'</div></div>';
+  html += '<div class="battleSide enemy"><div class="monWrap">'+monsterSvg(opp.speciesId)+'</div><div class="info"><b>'+spOpp.name+'</b> Lv'+opp.level+' '+famTagsHtml(spOpp)+renderBuffBadges(oppTeam)+renderHpBar(opp)+'</div></div>';
+  html += '<div class="battleSide"><div class="monWrap">'+monsterSvg(my.speciesId)+'</div><div class="info"><b>'+spMy.name+'</b> Lv'+my.level+' '+famTagsHtml(spMy)+renderBuffBadges(myTeam)+renderHpBar(my)+'</div></div>';
   html += '</div>';
   html += '<div id="battleLog">'+on.log.slice(-4).map(function(l){return '<div>'+l+'</div>';}).join('')+'</div>';
 
