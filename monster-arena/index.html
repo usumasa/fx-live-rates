@@ -181,12 +181,22 @@ function synthesize(idA, idB){
   if(!a || !b || a.fams.length!==1 || b.fams.length!==1 || idA===idB) return null;
   return SYNTHESIS_TABLE[[a.fams[0], b.fams[0]].sort().join("|")] || null;
 }
-function statAt(speciesId, level, stat){
-  var sp = SPECIES[speciesId];
-  return Math.round(sp.base[stat] + sp.growth[stat] * (level - 1));
+var STAT_KEYS = ['hp','atk','def','spd'];
+var STAT_LABEL = { hp:'HP', atk:'こうげき', def:'ぼうぎょ', spd:'すばやさ' };
+// every level-up adds exactly 1 point to exactly one stat (player's choice from Lv2 onward).
+// a freshly-created monster (starter/catch/synthesis) gets its early levels distributed
+// evenly round-robin, since the player never chose those.
+function defaultStatBonus(level){
+  var b = { hp:0, atk:0, def:0, spd:0 };
+  for(var i=0;i<level-1;i++){ b[STAT_KEYS[i%4]]++; }
+  return b;
 }
-function allStatsAt(speciesId, level){
-  return { hp:statAt(speciesId,level,'hp'), atk:statAt(speciesId,level,'atk'), def:statAt(speciesId,level,'def'), spd:statAt(speciesId,level,'spd') };
+function statFromBonus(speciesId, statBonus, stat){
+  var sp = SPECIES[speciesId];
+  return Math.round(sp.base[stat] + sp.growth[stat] * (statBonus ? statBonus[stat] : 0));
+}
+function allStatsFromBonus(speciesId, statBonus){
+  return { hp:statFromBonus(speciesId,statBonus,'hp'), atk:statFromBonus(speciesId,statBonus,'atk'), def:statFromBonus(speciesId,statBonus,'def'), spd:statFromBonus(speciesId,statBonus,'spd') };
 }
 function primaryType(speciesId){
   var fams = SPECIES[speciesId].fams;
@@ -354,7 +364,8 @@ function mulberry32(seed){
 function turnSeed(roomSeed, turn){ return ((roomSeed*1000003)+turn)>>>0; }
 
 function toRuntime(inst){
-  var stats = allStatsAt(inst.speciesId, inst.level);
+  var statBonus = inst.statBonus || defaultStatBonus(inst.level);
+  var stats = allStatsFromBonus(inst.speciesId, statBonus);
   var sp = SPECIES[inst.speciesId];
   return { uid:inst.uid, speciesId:inst.speciesId, level:inst.level, stats:stats, maxHp:stats.hp, currentHp:stats.hp, skillUses:sp.skill.uses };
 }
@@ -452,10 +463,10 @@ function randomRoomCode(){
   return s;
 }
 function currentTeamInfo(){
-  return G.party.map(function(uid){ var m = findMon(uid); return { speciesId:m.speciesId, level:m.level }; });
+  return G.party.map(function(uid){ var m = findMon(uid); return { speciesId:m.speciesId, level:m.level, statBonus:m.statBonus }; });
 }
 function runtimeTeamFromInfo(teamInfo){
-  return makeRuntimeTeam(teamInfo.map(function(t,i){ return { uid:'p'+i, speciesId:t.speciesId, level:t.level }; }));
+  return makeRuntimeTeam(teamInfo.map(function(t,i){ return { uid:'p'+i, speciesId:t.speciesId, level:t.level, statBonus:t.statBonus }; }));
 }
 
 function createOnlineRoom(){
@@ -571,7 +582,8 @@ var G = {
   nextUid: 1,
   starterPicked: false,
   battle: null,
-  online: null
+  online: null,
+  levelUpQueue: [] // monster uids awaiting a "which stat goes up" choice, one entry per level gained
 };
 
 function save(){
@@ -585,6 +597,8 @@ function load(){
     if(!raw) return false;
     var data = JSON.parse(raw);
     G.box = data.box||[]; G.party = data.party||[]; G.nextUid = data.nextUid||1; G.starterPicked = !!data.starterPicked;
+    // migrate saves from before per-stat level-up choices existed
+    G.box.forEach(function(m){ if(!m.statBonus){ m.statBonus = defaultStatBonus(m.level); } });
     return G.starterPicked;
   }catch(e){ return false; }
 }
@@ -593,20 +607,23 @@ function findMon(uid){ return G.box.find(function(m){ return m.uid===uid; }); }
 function boxWithout(uids){ return G.box.filter(function(m){ return uids.indexOf(m.uid)===-1; }); }
 
 function addMonster(speciesId, level){
-  var inst = { uid:newUid(), speciesId:speciesId, level:level||1, exp:0 };
+  level = level||1;
+  var inst = { uid:newUid(), speciesId:speciesId, level:level, exp:0, statBonus:defaultStatBonus(level) };
   G.box.push(inst);
   return inst;
 }
+// returns how many levels were gained; stat growth for those levels is NOT applied here —
+// the caller queues one stat-choice prompt per level via G.levelUpQueue
 function gainExp(inst, amount){
   inst.exp += amount;
-  var leveled = false;
+  var levelsGained = 0;
   while(inst.level < MAX_LEVEL && inst.exp >= expToNext(inst.level)){
     inst.exp -= expToNext(inst.level);
     inst.level++;
-    leveled = true;
+    levelsGained++;
   }
   if(inst.level >= MAX_LEVEL) inst.exp = 0;
-  return leveled;
+  return levelsGained;
 }
 
 /* ============================== TOAST ============================== */
@@ -649,6 +666,8 @@ function render(){
   if(s==='battle') return renderBattle();
   if(s==='onlineMenu') return renderOnlineMenu();
   if(s==='onlineBattle') return renderOnlineBattle();
+  if(s==='levelUp') return renderLevelUp();
+  if(s==='monDetail') return renderMonDetail();
   app.innerHTML = '<div>不明な画面</div>';
 }
 
@@ -675,12 +694,74 @@ function renderHome(){
     '<div class="btn primary" data-action="go-party">⚔️ パーティへんせい</div>'+
     '<div class="btn" data-action="go-online">🌐 オンラインたいせん</div>'+
   '</div>';
-  html += '<h2 class="section">ボックス（'+G.box.length+'匹）</h2>';
+  html += '<h2 class="section">ボックス（'+G.box.length+'匹）タップで のうりょくを みる</h2>';
   html += '<div class="grid">';
   G.box.forEach(function(inst){
     var inParty = G.party.indexOf(inst.uid)!==-1;
-    html += monCardHtml(inst, { badge: inParty ? 'P' : undefined });
+    html += monCardHtml(inst, { action:'view-mon', badge: inParty ? 'P' : undefined });
   });
+  html += '</div>';
+  app.innerHTML = html;
+}
+
+function renderMonDetail(){
+  var inst = findMon(G.viewMonUid);
+  if(!inst){ G.screen='home'; render(); return; }
+  var sp = SPECIES[inst.speciesId];
+  var stats = allStatsFromBonus(inst.speciesId, inst.statBonus);
+  var expNext = expToNext(inst.level);
+
+  var html = '<h1 class="title">'+sp.name+'</h1>';
+  html += '<div class="card" style="text-align:center;">';
+  html += '<div class="monIcon" style="max-width:160px;margin:0 auto;">'+monsterSvg(inst.speciesId)+'</div>';
+  html += '<div style="margin:6px 0;">'+famTagsHtml(sp)+'</div>';
+  html += '<div style="font-weight:900;font-size:18px;">Lv'+inst.level+'</div>';
+  if(inst.level<MAX_LEVEL){
+    var expPct = Math.round(inst.exp/expNext*100);
+    html += '<div class="hpBarOuter" style="margin:6px auto 2px;max-width:240px;"><div class="hpBarInner" style="width:'+expPct+'%;background:#5aa9ff;"></div></div>';
+    html += '<div style="font-size:11px;color:#8a6a3a;">つぎのレベルまで あと '+(expNext-inst.exp)+'exp</div>';
+  } else {
+    html += '<div style="font-size:12px;color:#8a6a3a;">さいだいレベル</div>';
+  }
+  html += '<div style="margin-top:14px;text-align:left;max-width:280px;margin-left:auto;margin-right:auto;">';
+  STAT_KEYS.forEach(function(k){
+    var pct = Math.min(100, Math.round(stats[k]/80*100));
+    html += '<div style="margin-bottom:8px;">'+
+      '<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:bold;"><span>'+STAT_LABEL[k]+'</span><span>'+stats[k]+'</span></div>'+
+      '<div class="hpBarOuter"><div class="hpBarInner" style="width:'+pct+'%;"></div></div>'+
+    '</div>';
+  });
+  html += '</div></div>';
+  html += '<div class="navRow"><div class="btn" data-action="back-home">もどる</div></div>';
+  app.innerHTML = html;
+}
+
+function renderLevelUp(){
+  var uid = G.levelUpQueue[0];
+  var inst = findMon(uid);
+  if(!inst){
+    G.levelUpQueue.shift();
+    G.screen = G.levelUpQueue.length>0 ? 'levelUp' : 'home';
+    render();
+    return;
+  }
+  var sp = SPECIES[inst.speciesId];
+  var stats = allStatsFromBonus(inst.speciesId, inst.statBonus);
+
+  var html = '<h1 class="title">⭐ レベルアップ！</h1>';
+  html += '<div class="card" style="text-align:center;">';
+  html += '<div class="monIcon" style="max-width:140px;margin:0 auto;">'+monsterSvg(inst.speciesId)+'</div>';
+  html += '<div style="font-weight:900;font-size:16px;">'+sp.name+' Lv'+inst.level+'</div>';
+  html += '<p style="font-size:13px;">のばす のうりょくを 1つ えらんでね</p>';
+  html += '<div class="grid" style="grid-template-columns:1fr 1fr;max-width:320px;margin:0 auto;">';
+  STAT_KEYS.forEach(function(k){
+    var gain = Math.round(sp.growth[k]);
+    html += '<div class="btn primary" data-action="level-up-choose" data-stat="'+k+'" style="flex-direction:column;padding:14px 8px;">'+
+      '<div>'+STAT_LABEL[k]+'</div><div style="font-size:12px;">'+stats[k]+' → '+(stats[k]+gain)+'</div>'+
+    '</div>';
+  });
+  html += '</div>';
+  if(G.levelUpQueue.length>1){ html += '<div style="margin-top:10px;font-size:12px;color:#8a6a3a;">のこり '+(G.levelUpQueue.length-1)+'かい</div>'; }
   html += '</div>';
   app.innerHTML = html;
 }
@@ -833,11 +914,12 @@ function playerAct(action){
     var msgs = [];
     G.party.forEach(function(uid){
       var inst = findMon(uid);
-      var leveled = gainExp(inst, expGain);
-      msgs.push(SPECIES[inst.speciesId].name+'は '+expGain+'けいけんちを かくとく'+(leveled?'！ レベルアップ！(Lv'+inst.level+')':'！'));
+      var levelsGained = gainExp(inst, expGain);
+      msgs.push(SPECIES[inst.speciesId].name+'は '+expGain+'けいけんちを かくとく'+(levelsGained>0?'！ レベルアップ！(Lv'+inst.level+')':'！'));
+      for(var i=0;i<levelsGained;i++){ G.levelUpQueue.push(uid); }
     });
     b.log = b.log.concat(msgs);
-    var caught = Math.random() < 0.6;
+    var caught = Math.random() < 0.3;
     if(caught){
       addMonster(b.teamB.monsters[0].speciesId, wildLevel);
       b.log.push('やせいの '+SPECIES[b.teamB.monsters[0].speciesId].name+'を なかまにした！');
@@ -1062,7 +1144,20 @@ app.addEventListener('click', function(e){
   } else if(action==='battle-flee'){
     G.battle = null; G.screen='home'; render();
   } else if(action==='battle-end-ok'){
-    G.battle = null; G.screen='home'; render();
+    G.battle = null;
+    G.screen = G.levelUpQueue.length>0 ? 'levelUp' : 'home';
+    render();
+  } else if(action==='level-up-choose'){
+    var luUid = G.levelUpQueue.shift();
+    var luInst = findMon(luUid);
+    var luStat = el.getAttribute('data-stat');
+    if(luInst){ luInst.statBonus[luStat] = (luInst.statBonus[luStat]||0) + 1; save(); }
+    G.screen = G.levelUpQueue.length>0 ? 'levelUp' : 'home';
+    render();
+  } else if(action==='view-mon'){
+    G.viewMonUid = el.getAttribute('data-uid');
+    G.screen = 'monDetail';
+    render();
   }
 });
 
