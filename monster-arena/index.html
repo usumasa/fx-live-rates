@@ -885,6 +885,7 @@ function render(){
   if(s==='onlineMenu') return renderOnlineMenu();
   if(s==='onlineBattle') return renderOnlineBattle();
   if(s==='cloudSave') return renderCloudSave();
+  if(s==='help') return renderHelp();
   if(s==='levelUp') return renderLevelUp();
   if(s==='monDetail') return renderMonDetail();
   app.innerHTML = '<div>不明な画面</div>';
@@ -892,6 +893,7 @@ function render(){
 
 function renderTitle(){
   var html = '<h1 class="title">🐲 モンスターアリーナ</h1>';
+  html += '<div class="navRow"><div class="btn" data-action="go-help">❓ ヘルプ</div></div>';
   html += '<div class="card"><h2 class="section" style="margin-top:0">さいしょの1匹をえらんでね</h2>';
   html += '<div class="grid">';
   BASE_SPECIES_IDS.forEach(function(id){
@@ -913,6 +915,7 @@ function renderHome(){
     '<div class="btn primary" data-action="go-party">⚔️ パーティへんせい</div>'+
     '<div class="btn" data-action="go-online">🌐 オンラインたいせん</div>'+
     '<div class="btn" data-action="go-cloud">☁️ クラウドセーブ</div>'+
+    '<div class="btn" data-action="go-help">❓ ヘルプ</div>'+
   '</div>';
   html += '<h2 class="section">ボックス（'+G.box.length+'匹）タップで のうりょくを みる</h2>';
   html += '<div class="grid">';
@@ -1295,6 +1298,76 @@ function renderOnlineMenu(){
   app.innerHTML = html;
 }
 
+function helpItemHtml(q, a){
+  return '<div class="card"><div style="font-weight:900;margin-bottom:6px;">'+q+'</div><div style="font-size:13px;line-height:1.6;">'+a+'</div></div>';
+}
+function renderHelp(){
+  var html = '<h1 class="title">❓ ヘルプ</h1>';
+
+  html += '<h2 class="section" style="margin-top:0;">あそびかたの ながれ</h2>';
+  html += helpItemHtml(
+    'なにから すればいい？',
+    '① さいしょの1匹をえらぶ → ② 🌿やせいと たたかって レベルアップしたり、あたらしい仲間を つかまえる → ③ ⚔️パーティへんせいで 手持ち3匹をきめる → ④ 🧪ごうせいで あたらしいモンスターを つくったり、🌐オンラインで 友達と たいせん、という じゅんばんが おすすめだよ。'
+  );
+  html += helpItemHtml(
+    'レベルアップのとき なにを えらべばいい？',
+    'レベルが あがるたびに、HP・こうげき・ぼうぎょ・すばやさ から 1つ えらんで のばせるよ。まよったら HPか こうげきを のばすのが つよくなりやすいよ。あとから やりなおしはできないので、そのモンスターの とくいな系統に あわせて えらんでね。'
+  );
+
+  html += '<h2 class="section">たたかいかた</h2>';
+  html += helpItemHtml(
+    'とくぎって どうやって ふえるの？',
+    'どのモンスターも 4つの わざを もっているよ。①さいしょから つかえる わざ(3かい)、②Lv10で おぼえる わざ(2かい)、③Lv15で おぼえる ほじょわざ(バフ or かいふく、3かい)、④Lv20で おぼえる とっておきの わざ(1かい)。この中から せんとうで つかう1つを 「パーティへんせい」がめんで えらんで そうびしてね(そうびしないと ①のわざに なるよ)。'
+  );
+  html += helpItemHtml(
+    'ほじょわざの こうげきアップ／ぼうぎょアップって なに？',
+    'つかうと みかた ぜんいんの こうげき または ぼうぎょが 5ターン つよくなるよ。ぼうぎょアップの わざは つかった モンスターの HPも すこし かいふくするので、HPが おおい モンスターむきだよ。'
+  );
+  html += helpItemHtml(
+    'タイプの あいしょうって あるの？',
+    'ほのお・みず・くさ の3つだけ 三すくみが あるよ(ほのお→くさ→みず→ほのお の じゅんに つよい)。けもの・あくま系統には あいしょうが ないから、いつでも ふつうの ダメージに なるよ。'
+  );
+  html += helpItemHtml(
+    'こうたいすると こうげきを うける？',
+    'じぶんの モンスターが やられて「こうたいする モンスターを えらんでね」と でたときは、そのターンは あいての こうげきを うけないよ。でも やられていないのに じぶんから こうたいを えらんだときは、そのターンに あいての こうげきを うける ことが あるので きをつけてね。'
+  );
+  html += helpItemHtml(
+    'やせいの モンスターは どのくらいで つかまる？',
+    'つかまえる かくりつは 30%だよ。しっぱいしても そのまま たたかいは つづくよ。'
+  );
+
+  html += '<h2 class="section">ごうせい</h2>';
+  html += helpItemHtml(
+    'どの モンスターが ごうせいできるの？',
+    'ほのお／みず／くさ／けもの／あくま の どれか1つだけの系統をもつ モンスター(さいしょに えらべる5匹の なかまたち)を 2匹 えらぶと、あたらしい こんごう系統の モンスターが うまれるよ。すでに こんごう系統の モンスターは ごうせいに つかえないよ。'
+  );
+  html += helpItemHtml(
+    'ごうせいすると もとの モンスターは どうなる？',
+    'もとの2匹は いなくなって、あたらしい モンスター1匹に なるよ。この操作は やりなおせないから、かくにん画面で よく かんがえてから すすめてね。'
+  );
+
+  html += '<h2 class="section">オンラインたいせん・データ</h2>';
+  html += helpItemHtml(
+    'オンラインたいせんは ログインが ひつよう？',
+    'ひつようないよ。パーティを3匹に そろえてから 🌐オンラインたいせんへ すすんで、へやを つくって できたコードを 友達に おしえるか、友達が つくった コードを 入力すれば すぐに たいせんできるよ。'
+  );
+  html += helpItemHtml(
+    'ブラウザを とじたら データが きえた…',
+    'ふつうに あそんでいれば じどうで ほぞんされているよ。もし iPhoneの プライベートモードで あそんでいるなら、そのモードは とじると データが きえる しくみだから、かわりに「ホーム画面に ついか」してから アイコンで あそぶと、ふつうに ずっと のこるよ。'
+  );
+  html += helpItemHtml(
+    '別の 端末にも データを うつしたい',
+    'ホーム画面の ☁️クラウドセーブから コードを ひかえて「ほぞんする」を おすと、べつの 端末で おなじ コードを 入力して「ふっかつする」ことで データを うつせるよ。うわがきされるので かくにんしてから すすめてね。'
+  );
+  html += helpItemHtml(
+    'モンスターを はなすと どうなる？',
+    'ボックスから いなくなって、パーティにも いられなくなるよ。この操作も やりなおせないよ。'
+  );
+
+  html += '<div class="navRow"><div class="btn" data-action="back-from-help">もどる</div></div>';
+  app.innerHTML = html;
+}
+
 function renderCloudSave(){
   var html = '<h1 class="title">☁️ クラウドセーブ</h1>';
   if(!isFirebaseConfigured()){
@@ -1430,6 +1503,8 @@ app.addEventListener('click', function(e){
     render();
   }
   else if(action==='back-home'){ G.screen='home'; render(); }
+  else if(action==='go-help'){ G.screen='help'; render(); }
+  else if(action==='back-from-help'){ G.screen = G.starterPicked ? 'home' : 'title'; render(); }
   else if(action==='go-cloud'){ G.cloudLoadConfirming=false; G.cloudLoadPendingCode=null; G.screen='cloudSave'; render(); }
   else if(action==='cloud-save'){ cloudSave(); }
   else if(action==='cloud-load'){
