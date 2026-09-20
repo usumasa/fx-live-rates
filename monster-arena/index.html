@@ -438,6 +438,12 @@ function resolveTurn(teamA, actionA, teamB, actionB, rng){
   var log = [];
   teamA = JSON.parse(JSON.stringify(teamA));
   teamB = JSON.parse(JSON.stringify(teamB));
+  // whether each side is switching in to replace a monster that already fainted, decided
+  // BEFORE applySwitch changes activeIndex -- only this forced case is protected from the
+  // incoming attack below. A voluntary switch (made while your active monster is still up)
+  // keeps the normal risk of eating the opponent's attack on the new monster.
+  var forcedA = teamA.monsters[teamA.activeIndex].currentHp<=0;
+  var forcedB = teamB.monsters[teamB.activeIndex].currentHp<=0;
   function applySwitch(team, action, side){
     if(action && action.type==='switch'){
       var m = team.monsters[action.toIndex];
@@ -447,8 +453,9 @@ function resolveTurn(teamA, actionA, teamB, actionB, rng){
   }
   var switchedA = applySwitch(teamA, actionA, 'A');
   var switchedB = applySwitch(teamB, actionB, 'B');
-  // a fresh switch-in is safe from that turn's incoming attack: no "revenge kill" for switching,
-  // so an attack aimed at a defender who just switched away whiffs harmlessly instead of landing
+  // a fresh switch-in FORCED by a faint is safe from that turn's incoming attack (no
+  // "revenge kill" on top of losing your last monster) -- a voluntary switch isn't protected,
+  // so an attack aimed at a forced-replacement defender whiffs harmlessly instead of landing
   function doAttack(attackerTeam, action, defenderTeam, side, defenderJustSwitched){
     var attacker = attackerTeam.monsters[attackerTeam.activeIndex];
     if(!attacker || attacker.currentHp<=0) return;
@@ -489,10 +496,10 @@ function resolveTurn(teamA, actionA, teamB, actionB, rng){
   if(aAttacks && bAttacks){
     var activeA = teamA.monsters[teamA.activeIndex], activeB = teamB.monsters[teamB.activeIndex];
     var aFirst = activeA.stats.spd===activeB.stats.spd ? (rng()<0.5) : activeA.stats.spd>activeB.stats.spd;
-    if(aFirst){ doAttack(teamA,actionA,teamB,'A',switchedB); doAttack(teamB,actionB,teamA,'B',switchedA); }
-    else { doAttack(teamB,actionB,teamA,'B',switchedA); doAttack(teamA,actionA,teamB,'A',switchedB); }
-  } else if(aAttacks){ doAttack(teamA,actionA,teamB,'A',switchedB); }
-  else if(bAttacks){ doAttack(teamB,actionB,teamA,'B',switchedA); }
+    if(aFirst){ doAttack(teamA,actionA,teamB,'A',switchedB&&forcedB); doAttack(teamB,actionB,teamA,'B',switchedA&&forcedA); }
+    else { doAttack(teamB,actionB,teamA,'B',switchedA&&forcedA); doAttack(teamA,actionA,teamB,'A',switchedB&&forcedB); }
+  } else if(aAttacks){ doAttack(teamA,actionA,teamB,'A',switchedB&&forcedB); }
+  else if(bAttacks){ doAttack(teamB,actionB,teamA,'B',switchedA&&forcedA); }
 
   var needsReplacementA = teamA.monsters[teamA.activeIndex].currentHp<=0 && !isDefeated(teamA);
   var needsReplacementB = teamB.monsters[teamB.activeIndex].currentHp<=0 && !isDefeated(teamB);
