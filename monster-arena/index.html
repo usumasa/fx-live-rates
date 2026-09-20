@@ -42,6 +42,8 @@
   .btn:active{ transform:translateY(3px); box-shadow:0 2px 0 rgba(0,0,0,.15); }
   .btn.primary{ background:var(--accent); color:#4a2f00; }
   .btn.small{ padding:8px 14px; font-size:13px; border-width:3px; box-shadow:0 4px 0 rgba(0,0,0,.15); }
+  .btn.subtle{ background:transparent; border-color:#c9b892; box-shadow:none; color:#8a6a3a; padding:5px 12px; font-size:11px; }
+  .btn.subtle:active{ transform:translateY(1px); box-shadow:none; }
   .btn.wide{ width:100%; max-width:360px; }
   .btn:disabled, .btn.disabled{ opacity:.4; pointer-events:none; }
 
@@ -918,14 +920,12 @@ function renderHome(){
   var html = '<div class="helpFab" data-action="go-help">❓</div>';
   html += '<h1 class="title">🐲 モンスターアリーナ</h1>';
   html += '<div class="navRow">'+
-    '<div class="btn primary" data-action="go-wild">🌿 やせいと たたかう</div>'+
-    '<div class="btn primary" data-action="go-synth">🧪 ごうせい</div>'+
-    '<div class="btn primary" data-action="go-party">⚔️ パーティへんせい</div>'+
+    '<div class="btn primary small" data-action="go-wild">🌿 やせいと たたかう</div>'+
+    '<div class="btn primary small" data-action="go-synth">🧪 合成</div>'+
+    '<div class="btn primary small" data-action="go-party">⚔️ パーティ</div>'+
+    '<div class="btn small" data-action="go-online">🌐 オンライン対戦</div>'+
   '</div>';
-  html += '<div class="navRow">'+
-    '<div class="btn" data-action="go-online">🌐 オンラインたいせん</div>'+
-    '<div class="btn" data-action="go-cloud">☁️ クラウドセーブ</div>'+
-  '</div>';
+  html += '<div class="navRow"><div class="btn subtle" data-action="go-cloud">☁️ クラウドセーブ</div></div>';
   html += '<h2 class="section">ボックス（'+G.box.length+'匹）タップで のうりょくを みる</h2>';
   html += '<div class="grid">';
   G.box.forEach(function(inst){
@@ -1251,7 +1251,7 @@ function playerAct(action){
 /* ============================== SYNTHESIS SCREEN ============================== */
 function renderSynth(){
   G.synthSelect = G.synthSelect || [];
-  var html = '<h1 class="title">🧪 ごうせい</h1><div class="card">'+
+  var html = '<h1 class="title">🧪 合成</h1><div class="card">'+
     '<p style="margin:0 0 8px;font-size:13px;">おなじ系統じゃない「ひとつの系統」のモンスターを2匹えらぶと、あたらしいモンスターがうまれるよ。</p>';
   html += '<div class="grid">';
   G.box.forEach(function(inst){
@@ -1307,9 +1307,9 @@ function renderSynth(){
 
 /* ============================== ONLINE SCREENS ============================== */
 function renderOnlineMenu(){
-  var html = '<h1 class="title">🌐 オンラインたいせん</h1>';
+  var html = '<h1 class="title">🌐 オンライン対戦</h1>';
   if(!isFirebaseConfigured()){
-    html += '<div class="card">オンラインたいせんを つかうには、さきに Firebase の せっていが ひつようだよ。READMEを みてね。</div>';
+    html += '<div class="card">オンライン対戦を つかうには、さきに Firebase の せっていが ひつようだよ。READMEを みてね。</div>';
   } else {
     html += '<div class="card">'+
       '<div class="navRow"><div class="btn primary wide" data-action="online-create">🏠 へやを つくる</div></div>'+
