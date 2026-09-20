@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>きょうりゅうごはん！</title>
+<style>
+  :root{
+    --sky-top:#8fd3ff;
+    --sky-bottom:#cdeaa0;
+    --ground:#8bc24a;
+  }
+  html,body{
+    margin:0; padding:0; width:100%; height:100%;
+    overflow:hidden;
+    touch-action:none;
+    -webkit-user-select:none; user-select:none;
+    -webkit-tap-highlight-color:transparent;
+    font-family:"Hiragino Maru Gothic ProN","Rounded Mplus 1c",system-ui,sans-serif;
+    background:linear-gradient(var(--sky-top), var(--sky-bottom));
+  }
+  #game{
+    position:fixed; inset:0;
+    overflow:hidden;
+  }
+  /* clouds */
+  .cloud{
+    position:absolute; top:8%; width:110px; height:38px;
+    background:#fff; border-radius:50px;
+    box-shadow:18px 9px 0 -6px #fff, -18px 5px 0 -8px #fff;
+    opacity:.9;
+  }
+  .cloud.c1{left:6%; top:8%; transform:scale(1.05);}
+  .cloud.c2{left:62%; top:14%; transform:scale(.75);}
+  .cloud.c3{left:32%; top:5%; transform:scale(.55);}
+
+  #ground{
+    position:absolute; left:0; right:0; bottom:0; height:26%;
+    background:linear-gradient(var(--ground), #6ea637);
+    border-top:6px solid #588a2c;
+  }
+
+  /* top HUD */
+  #hud{
+    position:absolute; top:calc(10px + env(safe-area-inset-top,0px)); left:0; right:0;
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+    z-index:15; pointer-events:none;
+  }
+  #scoreBox{
+    background:#fff8e6; border:5px solid #ffb703; border-radius:20px;
+    padding:4px 18px;
+    font-size:min(7vw,32px); font-weight:900; color:#5a4020;
+    display:flex; align-items:center; gap:8px;
+    box-shadow:0 6px 0 rgba(0,0,0,.15);
+  }
+  #scoreBox .icon{ font-size:min(8vw,36px); }
+  #timerBarOuter{
+    width:min(90vw,560px); height:16px;
+    background:rgba(255,255,255,.6); border:3px solid #fff;
+    border-radius:10px; overflow:hidden;
+  }
+  #timerBarInner{
+    height:100%; width:100%;
+    background:linear-gradient(90deg,#ffd23f,#ff8c42);
+  }
+
+  /* change-dino button */
+  #changeBtn{
+    position:absolute; top:calc(10px + env(safe-area-inset-top,0px)); left:calc(10px + env(safe-area-inset-left,0px));
+    z-index:16;
+    width:min(11vw,48px); height:min(11vw,48px); border-radius:50%;
+    background:#fff; border:3px solid #ffb703;
+    font-size:min(6vw,24px);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 0 rgba(0,0,0,.15);
+    padding:0; cursor:pointer;
+  }
+  #changeBtn:active{ transform:translateY(2px); box-shadow:none; }
+
+  /* food field */
+  #field{
+    position:absolute; left:0; right:0; top:16%; bottom:26%;
+    z-index:10;
+  }
+  .food{
+    position:absolute;
+    font-size:min(11vw,52px);
+    cursor:pointer;
+    filter:drop-shadow(0 4px 3px rgba(0,0,0,.25));
+    animation:foodPop .25s ease-out;
+    transition:transform .35s ease-in, opacity .35s ease-in, left .35s ease-in, top .35s ease-in;
+  }
+  @keyframes foodPop{
+    0%{ transform:scale(.2); opacity:0; }
+    70%{ transform:scale(1.2); opacity:1; }
+    100%{ transform:scale(1); opacity:1; }
+  }
+  .food.fading{ opacity:0; transform:scale(.5) translateY(10px); }
+  .food.eaten{ opacity:0; }
+
+  /* dino */
+  #dinoWrap{
+    position:absolute; left:50%; bottom:4%; transform:translateX(-50%);
+    width:min(78vw,420px);
+    animation:idleBob 2.2s ease-in-out infinite;
+    z-index:11;
+  }
+  #dinoWrap svg{ width:100%; height:auto; display:block; filter:drop-shadow(0 8px 5px rgba(0,0,0,.3)); }
+  @keyframes idleBob{
+    0%,100%{ transform:translateX(-50%) translateY(0); }
+    50%{ transform:translateX(-50%) translateY(-3%); }
+  }
+  #dinoWrap.chomp{ animation:chompPop .3s ease-out; }
+  @keyframes chompPop{
+    0%{ transform:translateX(-50%) scale(1); }
+    40%{ transform:translateX(-50%) scale(1.08) rotate(-3deg); }
+    100%{ transform:translateX(-50%) scale(1); }
+  }
+
+  /* result banner */
+  #banner{
+    position:fixed; inset:0; display:none;
+    align-items:center; justify-content:center; flex-direction:column;
+    background:rgba(0,0,0,.3);
+    z-index:25;
+  }
+  #banner .card{
+    background:#fff8e6; border:8px solid #ffb703;
+    border-radius:32px; padding:24px 40px;
+    text-align:center;
+    box-shadow:0 12px 0 rgba(0,0,0,.2);
+    animation:pop .4s ease-out;
+  }
+  @keyframes pop{ 0%{transform:scale(.3); opacity:0;} 70%{transform:scale(1.15);} 100%{transform:scale(1); opacity:1;} }
+  #banner .emoji{ font-size:min(16vw,90px); }
+  #banner .text{ font-size:min(6.5vw,30px); font-weight:900; color:#5a4020; margin-top:4px; }
+  #banner .num{ font-size:min(14vw,72px); font-weight:900; color:#e85d04; }
+
+  .confetti{
+    position:fixed; top:-20px; width:14px; height:14px; border-radius:3px;
+    z-index:24; animation:fall linear forwards;
+  }
+  @keyframes fall{
+    to{ transform:translateY(110vh) rotate(360deg); opacity:.9; }
+  }
+
+  /* dino select screen */
+  #selectScreen{
+    position:fixed; inset:0; z-index:30;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:min(4vw,22px);
+    background:linear-gradient(var(--sky-top), var(--sky-bottom));
+    padding:16px 0;
+  }
+  #selectScreen .selectTitle{
+    font-size:min(6.5vw,30px); font-weight:900; color:#3a2a1a;
+    text-align:center;
+  }
+  #selectGrid{
+    display:flex; flex-wrap:wrap; justify-content:center;
+    gap:min(3.5vw,18px);
+    padding:0 4vw;
+    max-width:640px;
+  }
+  .selectCard{
+    width:min(28vw,150px);
+    background:#fff8e6; border:6px solid #ffb703; border-radius:22px;
+    padding:8px 8px 4px;
+    box-shadow:0 8px 0 rgba(0,0,0,.15);
+    transition:transform .12s;
+  }
+  .selectCard:active{ transform:scale(.9); }
+  .selectCard svg{ width:100%; display:block; }
+  .selectCard .selectName{
+    font-size:min(2.8vw,13px); font-weight:bold; color:#5a4632;
+    text-align:center; margin-top:2px;
+  }
+
+  /* tap hint */
+  #hint{
+    position:absolute; left:50%; bottom:2%; transform:translateX(-50%);
+    font-size:min(5vw,22px); color:#3a2a1a; font-weight:bold;
+    background:rgba(255,255,255,.85); padding:6px 16px; border-radius:24px;
+    pointer-events:none; z-index:14;
+    animation:bounce 1s infinite;
+  }
+  @keyframes bounce{ 0%,100%{transform:translateX(-50%) translateY(0);} 50%{transform:translateX(-50%) translateY(-8px);} }
+</style>
+</head>
+<body>
+<div id="game">
+  <div class="cloud c1"></div>
+  <div class="cloud c2"></div>
+  <div class="cloud c3"></div>
+  <div id="ground"></div>
+
+  <button id="changeBtn" type="button" aria-label="きょうりゅうをかえる">🔁</button>
+
+  <div id="hud">
+    <div id="scoreBox"><span class="icon" id="scoreIcon">🍖</span><span id="scoreNum">0</span></div>
+    <div id="timerBarOuter"><div id="timerBarInner"></div></div>
+  </div>
+
+  <div id="field"></div>
+
+  <div id="dinoWrap"></div>
+
+  <div id="hint">👆 えさをタップ！</div>
+</div>
+
+<div id="banner">
+  <div class="card">
+    <div class="emoji" id="bannerEmoji">🦕</div>
+    <div class="num" id="bannerNum">0</div>
+    <div class="text">こ たべた！</div>
+  </div>
+</div>
+
+<div id="selectScreen">
+  <div class="selectTitle">👉 きょうりゅうをえらんでね</div>
+  <div id="selectGrid"></div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- SVG dinosaur templates (side view, facing right) ----------
+  function tRexSvg(){
+    return `<svg viewBox="0 0 220 170" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="95" cy="152" rx="72" ry="9" fill="rgba(0,0,0,.15)"/>
+      <path d="M55 95 C15 90, -10 100, -15 112 C10 108, 45 108, 62 106 Z" fill="#6f8a3e"/>
+      <g stroke="#4d6329" stroke-width="14" stroke-linecap="round">
+        <line x1="80" y1="120" x2="70" y2="150"/>
+        <line x1="115" y1="122" x2="122" y2="150"/>
+      </g>
+      <g stroke="#4d6329" stroke-width="6" stroke-linecap="round">
+        <line x1="132" y1="98" x2="145" y2="108"/>
+      </g>
+      <ellipse cx="100" cy="95" rx="60" ry="42" fill="#6f8a3e"/>
+      <ellipse cx="93" cy="114" rx="42" ry="21" fill="#e9dfc0"/>
+      <ellipse cx="168" cy="72" rx="38" ry="29" fill="#6f8a3e"/>
+      <path d="M172 86 L208 93 L172 100 Z" fill="#a5342f"/>
+      <path d="M175 84 L204 88 L197 82 L188 87 L179 81 Z" fill="#fff"/>
+      <circle cx="182" cy="63" r="5" fill="#1a1a1a"/>
+      <circle cx="184" cy="61" r="1.8" fill="#fff"/>
+    </svg>`;
+  }
+
+  function spinoSvg(){
+    return `<svg viewBox="0 0 220 170" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="95" cy="152" rx="72" ry="9" fill="rgba(0,0,0,.15)"/>
+      <path d="M50 100 C10 96, -10 104, -14 114 C8 112, 40 112, 58 110 Z" fill="#54788a"/>
+      <g stroke="#33505e" stroke-width="13" stroke-linecap="round">
+        <line x1="75" y1="122" x2="66" y2="150"/>
+        <line x1="115" y1="124" x2="122" y2="150"/>
+      </g>
+      <path d="M55 102 Q60 58 76 18 Q90 54 100 10 Q111 54 124 20 Q137 58 141 102 Z" fill="#c1502a" stroke="#8a3418" stroke-width="2"/>
+      <ellipse cx="100" cy="97" rx="58" ry="38" fill="#54788a"/>
+      <ellipse cx="93" cy="115" rx="40" ry="19" fill="#d8e4e6"/>
+      <ellipse cx="158" cy="80" rx="30" ry="20" fill="#54788a"/>
+      <path d="M175 79 L216 83 L175 93 Z" fill="#54788a"/>
+      <path d="M180 82 L212 84 L180 86 Z" fill="#eef4f5"/>
+      <circle cx="170" cy="71" r="4.5" fill="#1a1a1a"/>
+      <circle cx="171.5" cy="69.5" r="1.5" fill="#fff"/>
+    </svg>`;
+  }
+
+  function brachioSvg(){
+    return `<svg viewBox="0 0 220 200" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="105" cy="178" rx="78" ry="10" fill="rgba(0,0,0,.15)"/>
+      <path d="M40 122 C5 124, -10 132, -10 140 C10 138, 35 136, 50 132 Z" fill="#a67c52"/>
+      <g stroke="#7d5c3a" stroke-width="16" stroke-linecap="round">
+        <line x1="62" y1="142" x2="57" y2="177"/>
+        <line x1="92" y1="147" x2="90" y2="177"/>
+        <line x1="122" y1="147" x2="126" y2="177"/>
+        <line x1="152" y1="142" x2="160" y2="177"/>
+      </g>
+      <ellipse cx="107" cy="122" rx="76" ry="38" fill="#a67c52"/>
+      <ellipse cx="100" cy="140" rx="55" ry="17" fill="#dcc09a"/>
+      <path d="M150 102 C167 60, 156 24, 140 9 C162 15, 180 46, 171 92 Z" fill="#a67c52"/>
+      <ellipse cx="147" cy="14" rx="18" ry="13" fill="#a67c52"/>
+      <circle cx="154" cy="10" r="3" fill="#1a1a1a"/>
+      <circle cx="155" cy="9" r="1" fill="#fff"/>
+    </svg>`;
+  }
+
+  function stegoSvg(){
+    return `<svg viewBox="0 0 220 170" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="100" cy="152" rx="74" ry="9" fill="rgba(0,0,0,.15)"/>
+      <path d="M40 105 C5 108, -12 118, -14 126 C8 122, 30 118, 48 112 Z" fill="#7a8a6b"/>
+      <path d="M-6 112 L-22 100 L-9 119 Z" fill="#6b6b6b"/>
+      <path d="M-10 123 L-27 118 L-11 132 Z" fill="#6b6b6b"/>
+      <g stroke="#5a684d" stroke-width="15" stroke-linecap="round">
+        <line x1="70" y1="122" x2="64" y2="150"/>
+        <line x1="130" y1="122" x2="136" y2="150"/>
+      </g>
+      <ellipse cx="100" cy="102" rx="62" ry="35" fill="#7a8a6b"/>
+      <ellipse cx="93" cy="117" rx="45" ry="15" fill="#dfe4d2"/>
+      <path d="M55 72 L68 40 L80 74 Z" fill="#a65a3a"/>
+      <path d="M80 66 L94 32 L106 69 Z" fill="#a65a3a"/>
+      <path d="M105 66 L118 34 L130 69 Z" fill="#a65a3a"/>
+      <path d="M128 72 L138 44 L148 75 Z" fill="#a65a3a"/>
+      <ellipse cx="165" cy="97" rx="24" ry="17" fill="#7a8a6b"/>
+      <circle cx="181" cy="92" r="4" fill="#1a1a1a"/>
+      <circle cx="182.5" cy="90.5" r="1.4" fill="#fff"/>
+    </svg>`;
+  }
+
+  function ankyloSvg(){
+    return `<svg viewBox="0 0 220 160" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="100" cy="142" rx="76" ry="9" fill="rgba(0,0,0,.15)"/>
+      <path d="M35 100 C5 100, -10 104, -19 108 C-8 113, 8 113, 30 109 Z" fill="#6b5a3a"/>
+      <circle cx="-19" cy="108" r="13" fill="#5a4a2e"/>
+      <g stroke="#4a3c22" stroke-width="14" stroke-linecap="round">
+        <line x1="65" y1="117" x2="60" y2="140"/>
+        <line x1="135" y1="117" x2="140" y2="140"/>
+      </g>
+      <ellipse cx="100" cy="102" rx="68" ry="32" fill="#6b5a3a"/>
+      <ellipse cx="93" cy="114" rx="48" ry="13" fill="#d9c9a3"/>
+      <g fill="#4a3c22">
+        <circle cx="65" cy="84" r="7"/>
+        <circle cx="90" cy="77" r="8"/>
+        <circle cx="118" cy="77" r="8"/>
+        <circle cx="143" cy="84" r="7"/>
+        <circle cx="78" cy="97" r="6"/>
+        <circle cx="105" cy="94" r="6"/>
+        <circle cx="130" cy="97" r="6"/>
+      </g>
+      <ellipse cx="165" cy="100" rx="22" ry="16" fill="#6b5a3a"/>
+      <circle cx="179" cy="96" r="4" fill="#1a1a1a"/>
+      <circle cx="180.5" cy="94.5" r="1.4" fill="#fff"/>
+    </svg>`;
+  }
+
+  var DINOS = [
+    { make:tRexSvg,    name:"ティラノサウルス",   food:"🍖" },
+    { make:spinoSvg,   name:"スピノサウルス",     food:"🐟" },
+    { make:brachioSvg, name:"ブラキオサウルス",   food:"🌿" },
+    { make:stegoSvg,   name:"ステゴサウルス",     food:"🍃" },
+    { make:ankyloSvg,  name:"アンキロサウルス",   food:"🌱" }
+  ];
+
+  function svgFor(d){ return d.make(); }
+
+  // ---------- audio (no external files) ----------
+  var actx = null;
+  function ctx(){
+    if(!actx){ actx = new (window.AudioContext||window.webkitAudioContext)(); }
+    return actx;
+  }
+  function beep(freq, dur, type, vol){
+    try{
+      var ac = ctx();
+      var o = ac.createOscillator();
+      var g = ac.createGain();
+      o.type = type||"square";
+      o.frequency.value = freq;
+      g.gain.value = vol||0.15;
+      o.connect(g); g.connect(ac.destination);
+      var now = ac.currentTime;
+      g.gain.setValueAtTime(g.gain.value, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now+dur);
+      o.start(now);
+      o.stop(now+dur);
+    }catch(e){}
+  }
+  function eatSound(){ beep(320,0.08,"square",0.18); setTimeout(function(){ beep(200,0.1,"square",0.15); }, 60); }
+  function winSound(){
+    [523,659,784,1047].forEach(function(f,i){
+      setTimeout(function(){ beep(f,0.25,"triangle",0.18); }, i*140);
+    });
+  }
+
+  // ---------- game state ----------
+  var ROUND_TIME = 20000;
+  var SPAWN_INTERVAL = 900;
+  var MAX_FOOD = 5;
+  var FOOD_LIFETIME = 4000;
+
+  var selectedDino = null;
+  var score = 0;
+  var roundActive = false;
+  var spawnTimer = null;
+  var endTimer = null;
+
+  var game = document.getElementById("game");
+  var field = document.getElementById("field");
+  var dinoWrap = document.getElementById("dinoWrap");
+  var hint = document.getElementById("hint");
+  var scoreNum = document.getElementById("scoreNum");
+  var scoreIcon = document.getElementById("scoreIcon");
+  var timerBarInner = document.getElementById("timerBarInner");
+  var banner = document.getElementById("banner");
+  var bannerEmoji = document.getElementById("bannerEmoji");
+  var bannerNum = document.getElementById("bannerNum");
+  var changeBtn = document.getElementById("changeBtn");
+  var selectScreen = document.getElementById("selectScreen");
+  var selectGrid = document.getElementById("selectGrid");
+
+  function buildSelectGrid(){
+    selectGrid.innerHTML = "";
+    DINOS.forEach(function(d){
+      var card = document.createElement("div");
+      card.className = "selectCard";
+      card.innerHTML = svgFor(d) + '<div class="selectName">' + d.name + '</div>';
+      card.addEventListener("pointerdown", function(e){
+        e.stopPropagation();
+        e.preventDefault();
+        if(ctx().state === "suspended"){ ctx().resume(); }
+        beep(440, 0.12, "triangle", 0.15);
+        chooseDino(d);
+      });
+      selectGrid.appendChild(card);
+    });
+  }
+
+  function showSelectScreen(){
+    stopRound();
+    banner.style.display = "none";
+    selectScreen.style.display = "flex";
+  }
+
+  function chooseDino(d){
+    selectedDino = d;
+    scoreIcon.textContent = d.food;
+    dinoWrap.innerHTML = svgFor(d);
+    selectScreen.style.display = "none";
+    startRound();
+  }
+
+  function stopRound(){
+    roundActive = false;
+    clearInterval(spawnTimer);
+    clearTimeout(endTimer);
+    field.innerHTML = "";
+  }
+
+  function startRound(){
+    stopRound();
+    score = 0;
+    scoreNum.textContent = "0";
+    hint.style.display = "block";
+    banner.style.display = "none";
+    roundActive = true;
+
+    timerBarInner.style.transition = "none";
+    timerBarInner.style.width = "100%";
+    void timerBarInner.offsetWidth;
+    timerBarInner.style.transition = "width " + ROUND_TIME + "ms linear";
+    timerBarInner.style.width = "0%";
+
+    spawnTimer = setInterval(spawnFood, SPAWN_INTERVAL);
+    spawnFood();
+    endTimer = setTimeout(endRound, ROUND_TIME);
+  }
+
+  function spawnFood(){
+    if(!roundActive) return;
+    if(field.children.length >= MAX_FOOD) return;
+    var el = document.createElement("div");
+    el.className = "food";
+    el.textContent = selectedDino.food;
+    var leftPct = 8 + Math.random()*80;
+    var topPct = 8 + Math.random()*72;
+    el.style.left = leftPct + "%";
+    el.style.top = topPct + "%";
+    field.appendChild(el);
+
+    var lifeTimer = setTimeout(function(){
+      if(!el.parentNode) return;
+      el.classList.add("fading");
+      setTimeout(function(){ el.remove(); }, 350);
+    }, FOOD_LIFETIME);
+
+    el.addEventListener("pointerdown", function(e){
+      e.stopPropagation();
+      e.preventDefault();
+      if(!roundActive || el.dataset.eaten) return;
+      el.dataset.eaten = "1";
+      clearTimeout(lifeTimer);
+      eatFood(el);
+    });
+  }
+
+  function eatFood(el){
+    if(ctx().state === "suspended"){ ctx().resume(); }
+    eatSound();
+    hint.style.display = "none";
+
+    var foodRect = el.getBoundingClientRect();
+    var dinoRect = dinoWrap.getBoundingClientRect();
+    var targetX = dinoRect.left + dinoRect.width*0.72;
+    var targetY = dinoRect.top + dinoRect.height*0.32;
+    var dx = targetX - (foodRect.left + foodRect.width/2);
+    var dy = targetY - (foodRect.top + foodRect.height/2);
+
+    el.style.transform = "translate(" + dx + "px," + dy + "px) scale(.2)";
+    el.classList.add("eaten");
+
+    dinoWrap.classList.remove("chomp");
+    void dinoWrap.offsetWidth;
+    dinoWrap.classList.add("chomp");
+
+    score++;
+    scoreNum.textContent = String(score);
+
+    setTimeout(function(){ el.remove(); }, 300);
+  }
+
+  function endRound(){
+    roundActive = false;
+    clearInterval(spawnTimer);
+    hint.style.display = "none";
+
+    Array.prototype.forEach.call(field.querySelectorAll(".food"), function(el){
+      el.classList.add("fading");
+    });
+    setTimeout(function(){ field.innerHTML = ""; }, 350);
+
+    bannerNum.textContent = String(score);
+    winSound();
+    launchConfetti();
+
+    setTimeout(function(){
+      banner.style.display = "flex";
+    }, 400);
+
+    endTimer = setTimeout(function(){
+      banner.style.display = "none";
+      startRound();
+    }, 3200);
+  }
+
+  function launchConfetti(){
+    var colors = ["#ff595e","#ffca3a","#8ac926","#1982c4","#6a4c93"];
+    for(var i=0;i<40;i++){
+      (function(){
+        var d = document.createElement("div");
+        d.className = "confetti";
+        d.style.left = (Math.random()*100)+"vw";
+        d.style.background = colors[Math.floor(Math.random()*colors.length)];
+        var dur = 1.5 + Math.random()*1.5;
+        d.style.animationDuration = dur+"s";
+        d.style.top = "-20px";
+        document.body.appendChild(d);
+        setTimeout(function(){ d.remove(); }, dur*1000+100);
+      })();
+    }
+  }
+
+  changeBtn.addEventListener("pointerdown", function(e){
+    e.stopPropagation();
+    e.preventDefault();
+    showSelectScreen();
+  });
+
+  buildSelectGrid();
+  showSelectScreen();
+})();
+</script>
+</body>
+</html>
