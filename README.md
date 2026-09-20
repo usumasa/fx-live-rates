@@ -55,12 +55,17 @@ except online battles works immediately with no setup. Online battles need a
 4. Paste those values into `FIREBASE_CONFIG` near the top of the `<script>` in
    `monster-arena/index.html` (search for `YOUR_API_KEY`).
 5. In the Realtime Database's **Rules** tab, replace the rules with the
-   following so only the `rooms` path used by the game is readable/writable,
-   without requiring anyone to sign in:
+   following so only the `rooms` (battle rooms) and `saves` (cloud save)
+   paths used by the game are readable/writable, without requiring anyone
+   to sign in:
    ```json
    {
      "rules": {
        "rooms": {
+         ".read": true,
+         ".write": true
+       },
+       "saves": {
          ".read": true,
          ".write": true
        }
@@ -70,3 +75,9 @@ except online battles works immediately with no setup. Online battles need a
 
 That's it — anyone with the page open can then create or join a battle room
 by code, with no sign-in on either side.
+
+- **Cloud save**: from the home screen, **☁️ クラウドセーブ** shows a
+  6-letter code for the current device. Tap **ほぞんする** to upload your
+  box/party to that code, or enter someone else's (or your own, from
+  another device) code and tap **ふっかつする** to restore it — this
+  overwrites local data, so it asks for confirmation first.
