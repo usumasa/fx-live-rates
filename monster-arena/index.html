@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>モンスターアリーナ</title>
+<style>
+  :root{
+    --sky-top:#8fd3ff;
+    --sky-bottom:#d7f5c9;
+    --accent:#ffb703;
+  }
+  html,body{
+    margin:0; padding:0; width:100%; min-height:100%;
+    font-family:"Hiragino Maru Gothic ProN","Rounded Mplus 1c",system-ui,sans-serif;
+    background:linear-gradient(var(--sky-top), var(--sky-bottom)) fixed;
+    color:#3a2a1a;
+    -webkit-tap-highlight-color:transparent;
+  }
+  *{ box-sizing:border-box; }
+  #app{ min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:calc(12px + env(safe-area-inset-top,0px)) 12px calc(12px + env(safe-area-inset-bottom,0px)); }
+
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    background:#fff8e6; border:4px solid var(--accent); border-radius:18px;
+    padding:12px 20px; font-size:16px; font-weight:900; color:#5a4020;
+    box-shadow:0 6px 0 rgba(0,0,0,.15); cursor:pointer; user-select:none;
+    -webkit-user-select:none;
+  }
+  .btn:active{ transform:translateY(3px); box-shadow:0 2px 0 rgba(0,0,0,.15); }
+  .btn.primary{ background:var(--accent); color:#4a2f00; }
+  .btn.small{ padding:8px 14px; font-size:13px; border-width:3px; box-shadow:0 4px 0 rgba(0,0,0,.15); }
+  .btn.wide{ width:100%; max-width:360px; }
+  .btn:disabled, .btn.disabled{ opacity:.4; pointer-events:none; }
+
+  h1.title{ font-size:22px; margin:4px 0 12px; text-align:center; }
+  h2.section{ font-size:16px; margin:16px 0 8px; align-self:flex-start; }
+
+  .card{
+    background:#fff8e6cc; border:4px solid var(--accent); border-radius:20px;
+    padding:14px; width:100%; max-width:420px; box-shadow:0 8px 0 rgba(0,0,0,.1);
+  }
+
+  .monIcon{ width:100%; }
+  .monIcon svg{ width:100%; display:block; }
+
+  .grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(96px,1fr)); gap:10px; width:100%; max-width:460px; }
+  .monCard{
+    background:#fff; border:3px solid #e8d7ae; border-radius:16px; padding:6px;
+    text-align:center; cursor:pointer; position:relative;
+  }
+  .monCard.selected{ border-color:#2b9e4a; box-shadow:0 0 0 3px #2b9e4a55; }
+  .monCard.disabled{ opacity:.35; pointer-events:none; }
+  .monCard .nm{ font-size:11px; font-weight:bold; margin-top:2px; }
+  .monCard .lv{ font-size:10px; color:#8a6a3a; }
+  .monCard .badge{
+    position:absolute; top:2px; right:4px; background:#2b9e4a; color:#fff;
+    border-radius:10px; font-size:10px; padding:1px 6px; font-weight:bold;
+  }
+
+  .navRow{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top:14px; }
+
+  #toast{
+    position:fixed; left:50%; bottom:18px; transform:translateX(-50%);
+    background:#3a2a1acc; color:#fff; padding:10px 18px; border-radius:20px;
+    font-size:14px; font-weight:bold; z-index:50; opacity:0; pointer-events:none;
+    transition:opacity .25s;
+  }
+  #toast.show{ opacity:1; }
+
+  /* battle screen */
+  .battleField{
+    width:100%; max-width:460px; background:linear-gradient(#c9ecff,#bfe8a8);
+    border-radius:20px; border:4px solid #7fb84a; padding:14px; position:relative;
+    min-height:260px;
+  }
+  .battleSide{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .battleSide.enemy{ flex-direction:row; }
+  .battleSide .monWrap{ width:78px; flex:0 0 auto; }
+  .battleSide .info{ flex:1; background:#fffbe8; border:2px solid #e8d7ae; border-radius:12px; padding:6px 10px; }
+  .hpBarOuter{ background:#ddd; border-radius:8px; height:10px; overflow:hidden; margin-top:4px; }
+  .hpBarInner{ height:100%; background:#4caf50; transition:width .3s; }
+  .hpBarInner.mid{ background:#ffb703; }
+  .hpBarInner.low{ background:#e5443f; }
+  .hpText{ font-size:11px; text-align:right; margin-top:2px; }
+
+  #battleLog{
+    background:#fff; border:2px solid #e8d7ae; border-radius:12px; padding:8px 10px;
+    font-size:13px; min-height:44px; width:100%; max-width:460px; margin-top:10px;
+    line-height:1.5;
+  }
+  .actionGrid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; width:100%; max-width:460px; margin-top:10px; }
+
+  .familyTag{ display:inline-block; font-size:10px; padding:1px 6px; border-radius:8px; color:#fff; margin-right:2px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast"></div>
+
+<!-- Online battles need a free Firebase Realtime Database project; see README for setup steps.
+     Until FIREBASE_CONFIG below is filled in, everything except online battles works normally. -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+"use strict";
+
+/* ============================== DATA ============================== */
+var FAMILIES = {
+  hono:  { name:"ほのお", color:"#ff6b4a", accent:"flame" },
+  mizu:  { name:"みず",   color:"#4ab3ff", accent:"drop" },
+  kusa:  { name:"くさ",   color:"#6bcf5a", accent:"leaf" },
+  kemo:  { name:"けもの", color:"#c98b4a", accent:"ear" },
+  aku:   { name:"あくま", color:"#8a5ac9", accent:"horn" }
+};
+var STRONG_AGAINST = { hono:"kusa", kusa:"mizu", mizu:"hono" };
+var TYPE_FAMS = ["hono","mizu","kusa"];
+
+function typeMultiplier(aFam, dFam){
+  if(!aFam || !dFam) return 1;
+  if(TYPE_FAMS.indexOf(aFam)===-1 || TYPE_FAMS.indexOf(dFam)===-1) return 1;
+  if(STRONG_AGAINST[aFam]===dFam) return 1.5;
+  if(STRONG_AGAINST[dFam]===aFam) return 0.67;
+  return 1;
+}
+function mkMove(name, power, uses){ return { name:name, power:power, uses: uses||null }; }
+
+var SPECIES = {
+  flame:   { name:"ヒノコ",     fams:["hono"],       base:{hp:10,atk:8,def:4,spd:5}, growth:{hp:3,atk:2,def:1,spd:1.5},
+             attack:mkMove("ひっかき",1.0), skill:mkMove("ひのたま",1.6,3) },
+  aqua:    { name:"ポチャポン", fams:["mizu"],       base:{hp:12,atk:5,def:8,spd:4}, growth:{hp:3,atk:1.5,def:2,spd:1},
+             attack:mkMove("たいあたり",1.0), skill:mkMove("みずでっぽう",1.6,3) },
+  leaf:    { name:"ハッパン",   fams:["kusa"],       base:{hp:14,atk:5,def:6,spd:4}, growth:{hp:3.5,atk:1.5,def:1.5,spd:1},
+             attack:mkMove("たいあたり",1.0), skill:mkMove("はっぱカッター",1.6,3) },
+  beast:   { name:"キバウル",   fams:["kemo"],       base:{hp:10,atk:6,def:4,spd:8}, growth:{hp:2.5,atk:1.5,def:1,spd:2},
+             attack:mkMove("ひっかき",1.0), skill:mkMove("れんぞくアタック",1.6,3) },
+  dark:    { name:"マガトル",   fams:["aku"],        base:{hp:8,atk:9,def:4,spd:6},  growth:{hp:2,atk:2.5,def:1,spd:1.5},
+             attack:mkMove("たいあたり",1.0), skill:mkMove("あくまのつめ",1.6,3) },
+
+  steam:    { name:"ユゲムー",   fams:["hono","mizu"], base:{hp:11,atk:7,def:6,spd:5}, growth:{hp:3,atk:2,def:1.5,spd:1.5},
+              attack:mkMove("たいあたり",1.0), skill:mkMove("スチームブラスト",1.6,3) },
+  scorch:   { name:"コゲッパ",   fams:["hono","kusa"], base:{hp:12,atk:7,def:5,spd:5}, growth:{hp:3,atk:2,def:1,spd:1},
+              attack:mkMove("ひっかき",1.0), skill:mkMove("こげくさアタック",1.6,3) },
+  wildfire: { name:"モウカロン", fams:["hono","kemo"], base:{hp:10,atk:7,def:4,spd:7}, growth:{hp:3,atk:2,def:1,spd:2},
+              attack:mkMove("ひっかき",1.0), skill:mkMove("もうかえん",1.6,3) },
+  hellfire: { name:"エンマヒ",   fams:["hono","aku"],  base:{hp:9,atk:9,def:4,spd:6},  growth:{hp:2.5,atk:2,def:1,spd:1.5},
+              attack:mkMove("たいあたり",1.0), skill:mkMove("ごうかのほのお",1.6,3) },
+  swamp:    { name:"ドロモリ",   fams:["mizu","kusa"], base:{hp:13,atk:5,def:7,spd:4}, growth:{hp:3,atk:1.5,def:2,spd:1},
+              attack:mkMove("たいあたり",1.0), skill:mkMove("どろなみ",1.6,3) },
+  otter:    { name:"ラッコロ",   fams:["mizu","kemo"], base:{hp:11,atk:6,def:6,spd:6}, growth:{hp:3,atk:1.5,def:1.5,spd:1.5},
+              attack:mkMove("たいあたり",1.0), skill:mkMove("アクアテール",1.6,3) },
+  abyss:    { name:"ヤミウズ",   fams:["mizu","aku"],  base:{hp:10,atk:7,def:6,spd:5}, growth:{hp:2.5,atk:2,def:1.5,spd:1},
+              attack:mkMove("たいあたり",1.0), skill:mkMove("あんこくウェーブ",1.6,3) },
+  sprout:   { name:"モフバナ",   fams:["kusa","kemo"], base:{hp:12,atk:6,def:5,spd:6}, growth:{hp:3,atk:1.5,def:1,spd:1.5},
+              attack:mkMove("たいあたり",1.0), skill:mkMove("はなふぶき",1.6,3) },
+  thorn:    { name:"トゲドク",   fams:["kusa","aku"],  base:{hp:11,atk:7,def:5,spd:5}, growth:{hp:3,atk:2,def:1,spd:1},
+              attack:mkMove("たいあたり",1.0), skill:mkMove("どくのトゲ",1.6,3) },
+  werewolf: { name:"ガルナイト", fams:["kemo","aku"],  base:{hp:9,atk:8,def:4,spd:7},  growth:{hp:2,atk:2,def:1,spd:2},
+              attack:mkMove("ひっかき",1.0), skill:mkMove("ムーンファング",1.6,3) }
+};
+
+var SYNTHESIS_TABLE = {};
+Object.keys(SPECIES).forEach(function(id){
+  var sp = SPECIES[id];
+  if(sp.fams.length === 2){
+    SYNTHESIS_TABLE[sp.fams.slice().sort().join("|")] = id;
+  }
+});
+function synthesize(idA, idB){
+  var a = SPECIES[idA], b = SPECIES[idB];
+  if(!a || !b || a.fams.length!==1 || b.fams.length!==1 || idA===idB) return null;
+  return SYNTHESIS_TABLE[[a.fams[0], b.fams[0]].sort().join("|")] || null;
+}
+function statAt(speciesId, level, stat){
+  var sp = SPECIES[speciesId];
+  return Math.round(sp.base[stat] + sp.growth[stat] * (level - 1));
+}
+function allStatsAt(speciesId, level){
+  return { hp:statAt(speciesId,level,'hp'), atk:statAt(speciesId,level,'atk'), def:statAt(speciesId,level,'def'), spd:statAt(speciesId,level,'spd') };
+}
+function primaryType(speciesId){
+  var fams = SPECIES[speciesId].fams;
+  for(var i=0;i<fams.length;i++){ if(TYPE_FAMS.indexOf(fams[i])!==-1) return fams[i]; }
+  return null;
+}
+function computeDamage(atkSpeciesId, defSpeciesId, movePower, atk, def, rng){
+  var mult = typeMultiplier(primaryType(atkSpeciesId), primaryType(defSpeciesId));
+  var raw = Math.max(1, atk*movePower - def*0.4);
+  var variance = 0.9 + rng()*0.2;
+  return { damage: Math.max(1, Math.round(raw*mult*variance)), multiplier: mult };
+}
+
+var BASE_SPECIES_IDS = Object.keys(SPECIES).filter(function(id){ return SPECIES[id].fams.length===1; });
+
+/* ============================== SVG ART ============================== */
+function hexToRgb(hex){ var h=hex.replace('#',''); return {r:parseInt(h.substr(0,2),16),g:parseInt(h.substr(2,2),16),b:parseInt(h.substr(4,2),16)}; }
+function rgbToHex(r,g,b){ function c(v){ return Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0'); } return '#'+c(r)+c(g)+c(b); }
+function mixColor(a,b){ var A=hexToRgb(a),B=hexToRgb(b); return rgbToHex((A.r+B.r)/2,(A.g+B.g)/2,(A.b+B.b)/2); }
+function shade(hex, amt){ var c=hexToRgb(hex); return rgbToHex(c.r+amt,c.g+amt,c.b+amt); }
+
+function accentFlame(cx, color){
+  return '<path d="M'+(cx-11)+' 55 C'+(cx-15)+' 40,'+(cx-4)+' 26,'+cx+' 14 C'+(cx+4)+' 27,'+(cx+13)+' 39,'+(cx+9)+' 55 Z" fill="'+color+'"/>'+
+         '<path d="M'+(cx-5)+' 55 C'+(cx-7)+' 46,'+(cx-2)+' 38,'+cx+' 32 C'+(cx+2)+' 40,'+(cx+5)+' 47,'+(cx+3)+' 55 Z" fill="'+shade(color,40)+'"/>';
+}
+function accentDrop(cx, color){
+  return '<path d="M'+cx+' 14 C'+(cx+13)+' 32,'+(cx+13)+' 46,'+cx+' 55 C'+(cx-13)+' 46,'+(cx-13)+' 32,'+cx+' 14 Z" fill="'+color+'"/>'+
+         '<ellipse cx="'+(cx-3)+'" cy="40" rx="3" ry="6" fill="'+shade(color,50)+'" opacity=".7"/>';
+}
+function accentLeaf(cx, color){
+  return '<path d="M'+cx+' 55 C'+cx+' 36,'+(cx-16)+' 22,'+(cx-2)+' 14 C'+(cx+9)+' 24,'+(cx+11)+' 42,'+cx+' 55 Z" fill="'+color+'"/>'+
+         '<line x1="'+cx+'" y1="34" x2="'+(cx-6)+'" y2="20" stroke="'+shade(color,-40)+'" stroke-width="2"/>'+
+         '<line x1="'+cx+'" y1="55" x2="'+cx+'" y2="62" stroke="#5a4632" stroke-width="3" stroke-linecap="round"/>';
+}
+function accentEarPair(cx, color){
+  return '<path d="M'+(cx-20)+' 50 C'+(cx-28)+' 28,'+(cx-16)+' 16,'+(cx-9)+' 34 Z" fill="'+color+'"/>'+
+         '<path d="M'+(cx+20)+' 50 C'+(cx+28)+' 28,'+(cx+16)+' 16,'+(cx+9)+' 34 Z" fill="'+color+'"/>'+
+         '<path d="M'+(cx-18)+' 46 C'+(cx-22)+' 32,'+(cx-15)+' 26,'+(cx-11)+' 35 Z" fill="'+shade(color,-30)+'"/>'+
+         '<path d="M'+(cx+18)+' 46 C'+(cx+22)+' 32,'+(cx+15)+' 26,'+(cx+11)+' 35 Z" fill="'+shade(color,-30)+'"/>';
+}
+function accentHornPair(cx, color){
+  return '<path d="M'+(cx-16)+' 48 C'+(cx-24)+' 32,'+(cx-18)+' 14,'+(cx-9)+' 22 Z" fill="'+color+'"/>'+
+         '<path d="M'+(cx+16)+' 48 C'+(cx+24)+' 32,'+(cx+18)+' 14,'+(cx+9)+' 22 Z" fill="'+color+'"/>';
+}
+var ACCENT_FN = { flame:accentFlame, drop:accentDrop, leaf:accentLeaf, ear:accentEarPair, horn:accentHornPair };
+
+function bodyColorFor(sp){ return sp.fams.length===1 ? FAMILIES[sp.fams[0]].color : mixColor(FAMILIES[sp.fams[0]].color, FAMILIES[sp.fams[1]].color); }
+
+function monsterSvg(speciesId){
+  var sp = SPECIES[speciesId];
+  var color = bodyColorFor(sp);
+  var dark = shade(color,-40), light = shade(color,35);
+  var hasKemo = sp.fams.indexOf('kemo')!==-1;
+  var tail = hasKemo ? '<path d="M155 150 C185 145,195 125,185 108 C180 128,168 138,150 140 Z" fill="'+color+'"/>' : '';
+  var accentSvg;
+  if(sp.fams.length===1){
+    accentSvg = ACCENT_FN[FAMILIES[sp.fams[0]].accent](100, shade(FAMILIES[sp.fams[0]].color,-20));
+  } else {
+    var fn1 = ACCENT_FN[FAMILIES[sp.fams[0]].accent], fn2 = ACCENT_FN[FAMILIES[sp.fams[1]].accent];
+    accentSvg = '<g transform="translate(-28,4) scale(0.82)">'+fn1(100, shade(FAMILIES[sp.fams[0]].color,-20))+'</g>'+
+                '<g transform="translate(28,4) scale(0.82)">'+fn2(100, shade(FAMILIES[sp.fams[1]].color,-20))+'</g>';
+  }
+  return '<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">'+
+    '<ellipse cx="100" cy="172" rx="55" ry="10" fill="rgba(0,0,0,.15)"/>'+
+    tail+
+    '<ellipse cx="100" cy="120" rx="62" ry="55" fill="'+color+'"/>'+
+    '<ellipse cx="100" cy="100" rx="62" ry="42" fill="'+light+'" opacity=".55"/>'+
+    accentSvg+
+    '<circle cx="76" cy="118" r="12" fill="#fff"/><circle cx="124" cy="118" r="12" fill="#fff"/>'+
+    '<circle cx="79" cy="121" r="6.5" fill="'+dark+'"/><circle cx="127" cy="121" r="6.5" fill="'+dark+'"/>'+
+    '<circle cx="81" cy="118" r="2" fill="#fff"/><circle cx="129" cy="118" r="2" fill="#fff"/>'+
+    '<ellipse cx="65" cy="140" rx="9" ry="5" fill="#ff9d9d" opacity=".6"/><ellipse cx="135" cy="140" rx="9" ry="5" fill="#ff9d9d" opacity=".6"/>'+
+    '<path d="M88 145 Q100 154 112 145" stroke="'+dark+'" stroke-width="3" fill="none" stroke-linecap="round"/>'+
+    '<g stroke="'+dark+'" stroke-width="9" stroke-linecap="round"><line x1="60" y1="160" x2="52" y2="175"/><line x1="140" y1="160" x2="148" y2="175"/></g>'+
+  '</svg>';
+}
+
+/* ============================== AUDIO ============================== */
+var actx = null;
+function ctx(){ if(!actx){ actx = new (window.AudioContext||window.webkitAudioContext)(); } return actx; }
+function beep(freq, dur, type, vol){
+  try{
+    var ac = ctx(); var o = ac.createOscillator(); var g = ac.createGain();
+    o.type = type||"square"; o.frequency.value = freq; g.gain.value = vol||0.15;
+    o.connect(g); g.connect(ac.destination);
+    var now = ac.currentTime;
+    g.gain.setValueAtTime(g.gain.value, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now+dur);
+    o.start(now); o.stop(now+dur);
+  }catch(e){}
+}
+function sfxTap(){ beep(440,0.08,"triangle",0.12); }
+function sfxHit(){ beep(200,0.1,"square",0.18); }
+function sfxFaint(){ [300,220,150].forEach(function(f,i){ setTimeout(function(){beep(f,0.15,"sawtooth",0.15);}, i*90); }); }
+function sfxWin(){ [523,659,784,1047].forEach(function(f,i){ setTimeout(function(){beep(f,0.22,"triangle",0.16);}, i*130); }); }
+function sfxCatch(){ [660,880,1100].forEach(function(f,i){ setTimeout(function(){beep(f,0.15,"triangle",0.16);}, i*100); }); }
+function resumeAudio(){ if(ctx().state==='suspended'){ ctx().resume(); } }
+
+/* ============================== BATTLE ENGINE ============================== */
+var MAX_LEVEL = 20;
+function expToNext(level){ return level*8; }
+function mulberry32(seed){
+  return function(){
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    var t = Math.imul(seed ^ (seed>>>15), 1 | seed);
+    t = (t + Math.imul(t ^ (t>>>7), 61 | t)) ^ t;
+    return ((t ^ (t>>>14))>>>0) / 4294967296;
+  };
+}
+function turnSeed(roomSeed, turn){ return ((roomSeed*1000003)+turn)>>>0; }
+
+function toRuntime(inst){
+  var stats = allStatsAt(inst.speciesId, inst.level);
+  var sp = SPECIES[inst.speciesId];
+  return { uid:inst.uid, speciesId:inst.speciesId, level:inst.level, stats:stats, maxHp:stats.hp, currentHp:stats.hp, skillUses:sp.skill.uses };
+}
+function makeRuntimeTeam(instances){ return { monsters: instances.map(toRuntime), activeIndex:0 }; }
+function aliveIndices(team){ var out=[]; team.monsters.forEach(function(m,i){ if(m.currentHp>0) out.push(i); }); return out; }
+function isDefeated(team){ return aliveIndices(team).length===0; }
+
+// NOTE: log entries are perspective-independent ({side:'A'|'B', ...}) so the SAME
+// call (same argument order: team A, team B) can be made by both online players
+// against identical shared state; only rendering maps A/B to "あなた"/"あいて"
+// via the viewer's own role. A tie-break coin flip must never be interpreted
+// relative to "who is calling this", or host and guest would each read the same
+// rng() draw as favoring themselves.
+function resolveTurn(teamA, actionA, teamB, actionB, rng){
+  var log = [];
+  teamA = JSON.parse(JSON.stringify(teamA));
+  teamB = JSON.parse(JSON.stringify(teamB));
+  function applySwitch(team, action, side){
+    if(action && action.type==='switch'){
+      var m = team.monsters[action.toIndex];
+      if(m && m.currentHp>0){ team.activeIndex = action.toIndex; log.push({type:'switch', side:side, name:SPECIES[m.speciesId].name}); return true; }
+    }
+    return false;
+  }
+  var switchedA = applySwitch(teamA, actionA, 'A');
+  var switchedB = applySwitch(teamB, actionB, 'B');
+  function doAttack(attackerTeam, action, defenderTeam, side){
+    var attacker = attackerTeam.monsters[attackerTeam.activeIndex];
+    if(!attacker || attacker.currentHp<=0) return;
+    var sp = SPECIES[attacker.speciesId];
+    var move = action.type==='skill' ? sp.skill : sp.attack;
+    if(action.type==='skill'){ if(attacker.skillUses<=0){ move = sp.attack; } else { attacker.skillUses--; } }
+    var defender = defenderTeam.monsters[defenderTeam.activeIndex];
+    if(!defender || defender.currentHp<=0) return;
+    var result = computeDamage(attacker.speciesId, defender.speciesId, move.power, attacker.stats.atk, defender.stats.def, rng);
+    defender.currentHp = Math.max(0, defender.currentHp - result.damage);
+    log.push({type:'move', side:side, attackerName:SPECIES[attacker.speciesId].name, moveName:move.name, damage:result.damage, multiplier:result.multiplier});
+    if(defender.currentHp<=0){ log.push({type:'faint', side: side==='A'?'B':'A', name:SPECIES[defender.speciesId].name}); }
+  }
+  var aAttacks = !switchedA && actionA && (actionA.type==='attack'||actionA.type==='skill');
+  var bAttacks = !switchedB && actionB && (actionB.type==='attack'||actionB.type==='skill');
+  if(aAttacks && bAttacks){
+    var activeA = teamA.monsters[teamA.activeIndex], activeB = teamB.monsters[teamB.activeIndex];
+    var aFirst = activeA.stats.spd===activeB.stats.spd ? (rng()<0.5) : activeA.stats.spd>activeB.stats.spd;
+    if(aFirst){ doAttack(teamA,actionA,teamB,'A'); doAttack(teamB,actionB,teamA,'B'); }
+    else { doAttack(teamB,actionB,teamA,'B'); doAttack(teamA,actionA,teamB,'A'); }
+  } else if(aAttacks){ doAttack(teamA,actionA,teamB,'A'); }
+  else if(bAttacks){ doAttack(teamB,actionB,teamA,'B'); }
+
+  var needsReplacementA = teamA.monsters[teamA.activeIndex].currentHp<=0 && !isDefeated(teamA);
+  var needsReplacementB = teamB.monsters[teamB.activeIndex].currentHp<=0 && !isDefeated(teamB);
+  return { teamA:teamA, teamB:teamB, log:log, needsReplacementA:needsReplacementA, needsReplacementB:needsReplacementB, aDefeated:isDefeated(teamA), bDefeated:isDefeated(teamB) };
+}
+
+// viewerIsA: true if the person looking at the screen owns team A in this battle's canonical A/B assignment
+function formatLogEntry(entry, viewerIsA){
+  var mine = (entry.side==='A') === viewerIsA;
+  if(entry.type==='switch') return (mine?'あなた':'あいて')+'は '+entry.name+' にこうたいした！';
+  if(entry.type==='faint') return entry.name+'は たおれた！';
+  var eff = entry.multiplier>1 ? '(こうかは ばつぐんだ！)' : (entry.multiplier<1 ? '(こうかは いまひとつ...)' : '');
+  return (mine?'あなた':'あいて')+'の '+entry.attackerName+'の '+entry.moveName+'！ '+entry.damage+'ダメージ '+eff;
+}
+function formatLog(entries, viewerIsA){ return entries.map(function(e){ return formatLogEntry(e, viewerIsA); }); }
+
+/* ============================== ONLINE (Firebase Realtime Database) ==============================
+   Fill in FIREBASE_CONFIG (see README) to enable online battles. Nothing else in this game
+   depends on Firebase, so the rest of the game works fine while this is left as a placeholder.
+
+   Sync model: the two players never trust each other's computed results, only their raw
+   move CHOICES. Both clients independently run the exact same deterministic resolveTurn()
+   with a seed shared at room creation, so given the same two actions for a turn they always
+   compute identical damage/outcomes with no server-side authority needed. Canonically "team A"
+   is always the room host and "team B" is always the guest (regardless of which browser is
+   running the code) so a tie-break coin flip can never be read backwards by the two clients;
+   only the RENDER layer maps A/B to "you"/"opponent" for whoever is looking at the screen. */
+var FIREBASE_CONFIG = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+  projectId: "YOUR_PROJECT_ID"
+};
+function isFirebaseConfigured(){ return FIREBASE_CONFIG.apiKey.indexOf('YOUR_') !== 0; }
+var fbDb = null;
+function initFirebase(){
+  if(fbDb) return true;
+  if(!isFirebaseConfigured() || typeof firebase === 'undefined') return false;
+  try{ firebase.initializeApp(FIREBASE_CONFIG); fbDb = firebase.database(); return true; }
+  catch(e){ console.error(e); return false; }
+}
+
+var CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I, avoids look-alike mixups
+function randomRoomCode(){
+  var s = '';
+  for(var i=0;i<4;i++){ s += CODE_ALPHABET[Math.floor(Math.random()*CODE_ALPHABET.length)]; }
+  return s;
+}
+function currentTeamInfo(){
+  return G.party.map(function(uid){ var m = findMon(uid); return { speciesId:m.speciesId, level:m.level }; });
+}
+function runtimeTeamFromInfo(teamInfo){
+  return makeRuntimeTeam(teamInfo.map(function(t,i){ return { uid:'p'+i, speciesId:t.speciesId, level:t.level }; }));
+}
+
+function createOnlineRoom(){
+  if(!initFirebase()){ toast('Firebaseの せっていが まだだよ（READMEをみてね）'); return; }
+  if(G.party.length !== 3){ toast('パーティを3匹にしてね'); return; }
+  var code = randomRoomCode();
+  var seed = Math.floor(Math.random()*1e9);
+  var roomRef = fbDb.ref('rooms/'+code);
+  roomRef.set({ seed:seed, createdAt:Date.now(), host:{ team:currentTeamInfo() } }).then(function(){
+    G.online = { role:'host', code:code, seed:seed, roomRef:roomRef, hostTeamInfo:currentTeamInfo(), guestTeamInfo:null,
+      hostTeam:null, guestTeam:null, resolvedTurn:0, mySubmittedTurn:-1, log:[], ended:false, result:null, showSwitchMenu:false };
+    G.screen = 'onlineBattle';
+    attachRoomListener();
+    render();
+  }).catch(function(err){ toast('さくせいに しっぱいしたよ'); console.error(err); });
+}
+
+function joinOnlineRoom(codeRaw){
+  if(!initFirebase()){ toast('Firebaseの せっていが まだだよ（READMEをみてね）'); return; }
+  if(G.party.length !== 3){ toast('パーティを3匹にしてね'); return; }
+  var code = codeRaw.toUpperCase();
+  var roomRef = fbDb.ref('rooms/'+code);
+  roomRef.once('value').then(function(snap){
+    var val = snap.val();
+    if(!val){ toast('その コードは みつからないよ'); return; }
+    if(val.guest){ toast('その へやは まんいんだよ'); return; }
+    return roomRef.child('guest').set({ team:currentTeamInfo() }).then(function(){
+      G.online = { role:'guest', code:code, seed:val.seed, roomRef:roomRef, hostTeamInfo:val.host.team, guestTeamInfo:currentTeamInfo(),
+        hostTeam:null, guestTeam:null, resolvedTurn:0, mySubmittedTurn:-1, log:[], ended:false, result:null, showSwitchMenu:false };
+      G.screen = 'onlineBattle';
+      attachRoomListener();
+      render();
+    });
+  }).catch(function(err){ toast('さんかに しっぱいしたよ'); console.error(err); });
+}
+
+function attachRoomListener(){
+  var on = G.online;
+  on.roomRef.on('value', function(snap){
+    if(!G.online || G.online.code !== on.code) return; // stale listener from a room we already left
+    onRoomSnapshot(snap.val() || {});
+  });
+}
+
+function onRoomSnapshot(val){
+  var on = G.online;
+  if(val.host && val.host.team) on.hostTeamInfo = val.host.team;
+  if(val.guest && val.guest.team) on.guestTeamInfo = val.guest.team;
+  if(!on.hostTeam && on.hostTeamInfo && on.guestTeamInfo){
+    on.hostTeam = runtimeTeamFromInfo(on.hostTeamInfo);
+    on.guestTeam = runtimeTeamFromInfo(on.guestTeamInfo);
+    on.log.push('たいせん かいし！');
+  }
+  if(val.forfeit && val.forfeit !== on.role && !on.ended){
+    on.ended = true; on.result = 'win';
+    on.log.push('あいてが たいせんを ぬけた…');
+    on.log.push('🎉 あなたの かち！');
+    sfxWin();
+    if(G.screen === 'onlineBattle') render();
+    return;
+  }
+  var actions = val.actions || {};
+  while(on.hostTeam && on.guestTeam && !on.ended){
+    var hAct = actions.host && actions.host['t'+on.resolvedTurn];
+    var gAct = actions.guest && actions.guest['t'+on.resolvedTurn];
+    if(!hAct || !gAct) break;
+    var rng = mulberry32(turnSeed(on.seed, on.resolvedTurn));
+    var res = resolveTurn(on.hostTeam, hAct, on.guestTeam, gAct, rng);
+    on.hostTeam = res.teamA; on.guestTeam = res.teamB;
+    var viewerIsA = on.role === 'host';
+    on.log = on.log.concat(formatLog(res.log, viewerIsA));
+    on.resolvedTurn++;
+    var myDefeated = viewerIsA ? res.aDefeated : res.bDefeated;
+    var oppDefeated = viewerIsA ? res.bDefeated : res.aDefeated;
+    if(myDefeated || oppDefeated){
+      on.ended = true;
+      on.result = oppDefeated && !myDefeated ? 'win' : (myDefeated && !oppDefeated ? 'lose' : 'draw');
+      on.log.push(on.result==='win' ? '🎉 あなたの かち！' : (on.result==='lose' ? 'あなたの まけ…' : 'ひきわけ！'));
+      if(on.result==='win'){ sfxWin(); } else { sfxFaint(); }
+    }
+  }
+  if(G.screen === 'onlineBattle') render();
+}
+
+function submitOnlineAction(action){
+  var on = G.online;
+  if(!on || on.ended) return;
+  on.mySubmittedTurn = on.resolvedTurn;
+  on.showSwitchMenu = false;
+  on.roomRef.child('actions/'+on.role+'/t'+on.resolvedTurn).set(action);
+  sfxHit();
+  render();
+}
+
+function leaveOnline(){
+  if(G.online && G.online.roomRef){
+    if(!G.online.ended && G.online.hostTeam && G.online.guestTeam){
+      try{ G.online.roomRef.child('forfeit').set(G.online.role); }catch(e){}
+    }
+    try{ G.online.roomRef.off(); }catch(e){}
+  }
+  G.online = null;
+  G.screen = 'home';
+  render();
+}
+
+/* ============================== STATE & PERSISTENCE ============================== */
+var SAVE_KEY = 'monsterArenaSave_v1';
+var G = {
+  screen: 'title',
+  box: [],
+  party: [],
+  nextUid: 1,
+  starterPicked: false,
+  battle: null,
+  online: null
+};
+
+function save(){
+  try{
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ box:G.box, party:G.party, nextUid:G.nextUid, starterPicked:G.starterPicked }));
+  }catch(e){}
+}
+function load(){
+  try{
+    var raw = localStorage.getItem(SAVE_KEY);
+    if(!raw) return false;
+    var data = JSON.parse(raw);
+    G.box = data.box||[]; G.party = data.party||[]; G.nextUid = data.nextUid||1; G.starterPicked = !!data.starterPicked;
+    return G.starterPicked;
+  }catch(e){ return false; }
+}
+function newUid(){ return 'm'+(G.nextUid++); }
+function findMon(uid){ return G.box.find(function(m){ return m.uid===uid; }); }
+function boxWithout(uids){ return G.box.filter(function(m){ return uids.indexOf(m.uid)===-1; }); }
+
+function addMonster(speciesId, level){
+  var inst = { uid:newUid(), speciesId:speciesId, level:level||1, exp:0 };
+  G.box.push(inst);
+  return inst;
+}
+function gainExp(inst, amount){
+  inst.exp += amount;
+  var leveled = false;
+  while(inst.level < MAX_LEVEL && inst.exp >= expToNext(inst.level)){
+    inst.exp -= expToNext(inst.level);
+    inst.level++;
+    leveled = true;
+  }
+  if(inst.level >= MAX_LEVEL) inst.exp = 0;
+  return leveled;
+}
+
+/* ============================== TOAST ============================== */
+var toastTimer = null;
+function toast(msg){
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ el.classList.remove('show'); }, 1800);
+}
+
+/* ============================== RENDER HELPERS ============================== */
+function famTagsHtml(sp){
+  return sp.fams.map(function(f){
+    return '<span class="familyTag" style="background:'+FAMILIES[f].color+'">'+FAMILIES[f].name+'</span>';
+  }).join('');
+}
+function monCardHtml(inst, opts){
+  opts = opts||{};
+  var sp = SPECIES[inst.speciesId];
+  var cls = 'monCard'+(opts.selected?' selected':'')+(opts.disabled?' disabled':'');
+  return '<div class="'+cls+'" data-action="'+(opts.action||'')+'" data-uid="'+inst.uid+'">'+
+    (opts.badge!==undefined ? '<div class="badge">'+opts.badge+'</div>' : '') +
+    '<div class="monIcon">'+monsterSvg(inst.speciesId)+'</div>'+
+    '<div class="nm">'+sp.name+'</div><div class="lv">Lv'+inst.level+'</div>'+
+  '</div>';
+}
+
+/* ============================== SCREENS ============================== */
+var app = document.getElementById('app');
+
+function render(){
+  var s = G.screen;
+  if(s==='title') return renderTitle();
+  if(s==='home') return renderHome();
+  if(s==='party') return renderPartySelect();
+  if(s==='wild') return renderWildIntro();
+  if(s==='synth') return renderSynth();
+  if(s==='battle') return renderBattle();
+  if(s==='onlineMenu') return renderOnlineMenu();
+  if(s==='onlineBattle') return renderOnlineBattle();
+  app.innerHTML = '<div>不明な画面</div>';
+}
+
+function renderTitle(){
+  var html = '<h1 class="title">🐲 モンスターアリーナ</h1>';
+  html += '<div class="card"><h2 class="section" style="margin-top:0">さいしょの1匹をえらんでね</h2>';
+  html += '<div class="grid">';
+  BASE_SPECIES_IDS.forEach(function(id){
+    html += '<div class="monCard" data-action="pick-starter" data-species="'+id+'">'+
+      '<div class="monIcon">'+monsterSvg(id)+'</div>'+
+      '<div class="nm">'+SPECIES[id].name+'</div>'+
+      '<div class="lv">'+famTagsHtml(SPECIES[id])+'</div>'+
+    '</div>';
+  });
+  html += '</div></div>';
+  app.innerHTML = html;
+}
+
+function renderHome(){
+  var html = '<h1 class="title">🐲 モンスターアリーナ</h1>';
+  html += '<div class="navRow">'+
+    '<div class="btn primary" data-action="go-wild">🌿 やせいと たたかう</div>'+
+    '<div class="btn primary" data-action="go-synth">🧪 ごうせい</div>'+
+    '<div class="btn primary" data-action="go-party">⚔️ パーティへんせい</div>'+
+    '<div class="btn" data-action="go-online">🌐 オンラインたいせん</div>'+
+  '</div>';
+  html += '<h2 class="section">ボックス（'+G.box.length+'匹）</h2>';
+  html += '<div class="grid">';
+  G.box.forEach(function(inst){
+    var inParty = G.party.indexOf(inst.uid)!==-1;
+    html += monCardHtml(inst, { badge: inParty ? 'P' : undefined });
+  });
+  html += '</div>';
+  app.innerHTML = html;
+}
+
+function renderPartySelect(){
+  var html = '<h1 class="title">⚔️ パーティへんせい（さいだい3匹）</h1>';
+  html += '<div class="card"><div class="grid">';
+  G.box.forEach(function(inst){
+    var idx = G.party.indexOf(inst.uid);
+    html += monCardHtml(inst, { action:'toggle-party', selected: idx!==-1, badge: idx!==-1 ? String(idx+1) : undefined });
+  });
+  html += '</div></div>';
+  html += '<div class="navRow"><div class="btn primary" data-action="back-home">✅ けってい</div></div>';
+  app.innerHTML = html;
+}
+
+function renderWildIntro(){
+  if(G.party.length===0){
+    app.innerHTML = '<h1 class="title">🌿 やせいと たたかう</h1><div class="card">まず「パーティへんせい」で1匹いじょう えらんでね</div>'+
+      '<div class="navRow"><div class="btn" data-action="go-party">パーティへんせいへ</div><div class="btn" data-action="back-home">もどる</div></div>';
+    return;
+  }
+  startWildBattle();
+}
+
+function pickWildLevel(){
+  var lvls = G.party.map(function(uid){ return findMon(uid).level; });
+  var avg = lvls.reduce(function(a,b){return a+b;},0) / lvls.length;
+  var lo = Math.max(1, Math.round(avg)-2), hi = Math.max(lo+1, Math.round(avg)+1);
+  return Math.min(MAX_LEVEL, Math.max(1, lo + Math.floor(Math.random()*(hi-lo+1))));
+}
+
+function startWildBattle(){
+  var wildSpecies = BASE_SPECIES_IDS[Math.floor(Math.random()*BASE_SPECIES_IDS.length)];
+  var wildLevel = pickWildLevel();
+  var playerInstances = G.party.map(findMon);
+  var teamPlayer = makeRuntimeTeam(playerInstances);
+  var teamWild = makeRuntimeTeam([{ uid:'wild', speciesId:wildSpecies, level:wildLevel }]);
+  G.battle = {
+    mode:'wild', turn:0, seed: Math.floor(Math.random()*1e9), viewerIsA:true,
+    teamA: teamPlayer, teamB: teamWild,
+    log: ['やせいの '+SPECIES[wildSpecies].name+'(Lv'+wildLevel+') が あらわれた！'],
+    ended:false, needsReplacementA:false, awaitingAction:true
+  };
+  G.screen = 'battle';
+  render();
+}
+
+function wildCpuAction(teamB, teamA){
+  var active = teamB.monsters[teamB.activeIndex];
+  if(active.currentHp <= 0){
+    var alive = aliveIndices(teamB).filter(function(i){ return i!==teamB.activeIndex; });
+    return { type:'switch', toIndex: alive[0] };
+  }
+  if(active.currentHp < active.maxHp*0.3 && Math.random()<0.4){
+    var bench = aliveIndices(teamB).filter(function(i){ return i!==teamB.activeIndex; });
+    if(bench.length) return { type:'switch', toIndex:bench[0] };
+  }
+  return active.skillUses>0 && Math.random()<0.7 ? {type:'skill'} : {type:'attack'};
+}
+
+function renderHpBar(m){
+  var pct = Math.max(0, Math.round(m.currentHp/m.maxHp*100));
+  var cls = pct<=25?'low':(pct<=55?'mid':'');
+  return '<div class="hpBarOuter"><div class="hpBarInner '+cls+'" style="width:'+pct+'%"></div></div>'+
+         '<div class="hpText">HP '+m.currentHp+' / '+m.maxHp+'</div>';
+}
+
+function renderBattle(){
+  var b = G.battle;
+  var a = b.teamA.monsters[b.teamA.activeIndex];
+  var e = b.teamB.monsters[b.teamB.activeIndex];
+  var spA = SPECIES[a.speciesId], spE = SPECIES[e.speciesId];
+
+  var html = '<h1 class="title">'+(b.mode==='wild' ? '🌿 やせいの たたかい' : '⚔️ たいせん')+'</h1>';
+  html += '<div class="battleField">';
+  html += '<div class="battleSide enemy"><div class="monWrap">'+monsterSvg(e.speciesId)+'</div><div class="info"><b>'+spE.name+'</b> Lv'+e.level+' '+famTagsHtml(spE)+renderHpBar(e)+'</div></div>';
+  html += '<div class="battleSide"><div class="monWrap">'+monsterSvg(a.speciesId)+'</div><div class="info"><b>'+spA.name+'</b> Lv'+a.level+' '+famTagsHtml(spA)+renderHpBar(a)+'</div></div>';
+  html += '</div>';
+
+  html += '<div id="battleLog">'+b.log.slice(-4).map(function(l){return '<div>'+l+'</div>';}).join('')+'</div>';
+
+  if(b.ended){
+    html += '<div class="navRow"><div class="btn primary" data-action="battle-end-ok">OK</div></div>';
+  } else if(b.needsReplacementA){
+    html += '<h2 class="section">こうたいする モンスターを えらんでね</h2><div class="grid">';
+    b.teamA.monsters.forEach(function(m, i){
+      if(i===b.teamA.activeIndex) return;
+      var disabled = m.currentHp<=0;
+      html += '<div class="monCard'+(disabled?' disabled':'')+'" data-action="do-switch" data-idx="'+i+'">'+
+        '<div class="monIcon">'+monsterSvg(m.speciesId)+'</div><div class="nm">'+SPECIES[m.speciesId].name+'</div>'+
+        '<div class="lv">HP '+m.currentHp+'/'+m.maxHp+'</div></div>';
+    });
+    html += '</div>';
+  } else {
+    html += '<div class="actionGrid">'+
+      '<div class="btn primary" data-action="do-attack">🗡️ たたかう</div>'+
+      '<div class="btn primary'+(a.skillUses<=0?' disabled':'')+'" data-action="do-skill">✨ '+spA.skill.name+'（'+a.skillUses+'）</div>'+
+      '<div class="btn" data-action="show-switch">🔄 こうたい</div>'+
+      '<div class="btn" data-action="battle-flee">🏃 にげる</div>'+
+    '</div>';
+    if(b.showSwitchMenu){
+      html += '<h2 class="section">こうたいさき</h2><div class="grid">';
+      b.teamA.monsters.forEach(function(m, i){
+        if(i===b.teamA.activeIndex) return;
+        var disabled = m.currentHp<=0;
+        html += '<div class="monCard'+(disabled?' disabled':'')+'" data-action="do-switch" data-idx="'+i+'">'+
+          '<div class="monIcon">'+monsterSvg(m.speciesId)+'</div><div class="nm">'+SPECIES[m.speciesId].name+'</div>'+
+          '<div class="lv">HP '+m.currentHp+'/'+m.maxHp+'</div></div>';
+      });
+      html += '</div>';
+    }
+  }
+  app.innerHTML = html;
+}
+
+function playerAct(action){
+  var b = G.battle;
+  if(!b || b.ended || b.needsReplacementA) return;
+  b.showSwitchMenu = false;
+  var rng = mulberry32(turnSeed(b.seed, b.turn));
+  var cpuAction = wildCpuAction(b.teamB, b.teamA);
+  var res = resolveTurn(b.teamA, action, b.teamB, cpuAction, rng);
+  b.teamA = res.teamA; b.teamB = res.teamB;
+  b.log = b.log.concat(formatLog(res.log, b.viewerIsA));
+  b.turn++;
+  sfxHit();
+
+  if(res.bDefeated){
+    b.ended = true; b.result = 'win';
+    var wildLevel = b.teamB.monsters[0].level;
+    var expGain = wildLevel*6+4;
+    var msgs = [];
+    G.party.forEach(function(uid){
+      var inst = findMon(uid);
+      var leveled = gainExp(inst, expGain);
+      msgs.push(SPECIES[inst.speciesId].name+'は '+expGain+'けいけんちを かくとく'+(leveled?'！ レベルアップ！(Lv'+inst.level+')':'！'));
+    });
+    b.log = b.log.concat(msgs);
+    var caught = Math.random() < 0.6;
+    if(caught){
+      addMonster(b.teamB.monsters[0].speciesId, wildLevel);
+      b.log.push('やせいの '+SPECIES[b.teamB.monsters[0].speciesId].name+'を なかまにした！');
+      sfxCatch();
+    } else {
+      b.log.push('やせいの '+SPECIES[b.teamB.monsters[0].speciesId].name+'は にげてしまった…');
+      sfxWin();
+    }
+    save();
+    render();
+    return;
+  }
+  if(res.aDefeated){
+    b.ended = true; b.result = 'lose';
+    b.log.push('あなたの パーティは ぜんめつしてしまった…');
+    render();
+    return;
+  }
+  if(res.needsReplacementA){
+    b.needsReplacementA = true;
+    sfxFaint();
+    render();
+    return;
+  }
+  render();
+}
+
+/* ============================== SYNTHESIS SCREEN ============================== */
+function renderSynth(){
+  G.synthSelect = G.synthSelect || [];
+  var html = '<h1 class="title">🧪 ごうせい</h1><div class="card">'+
+    '<p style="margin:0 0 8px;font-size:13px;">おなじ系統じゃない「ひとつの系統」のモンスターを2匹えらぶと、あたらしいモンスターがうまれるよ。</p>';
+  html += '<div class="grid">';
+  G.box.forEach(function(inst){
+    var sp = SPECIES[inst.speciesId];
+    var isBase = sp.fams.length===1;
+    var selIdx = G.synthSelect.indexOf(inst.uid);
+    html += monCardHtml(inst, { action: isBase ? 'toggle-synth' : '', selected: selIdx!==-1, disabled: !isBase, badge: selIdx!==-1?String(selIdx+1):undefined });
+  });
+  html += '</div>';
+
+  var previewId = null;
+  if(G.synthSelect.length===2){
+    var a = findMon(G.synthSelect[0]), b = findMon(G.synthSelect[1]);
+    previewId = a && b ? synthesize(a.speciesId, b.speciesId) : null;
+  }
+  if(previewId){
+    var newLevel = Math.max(1, Math.round((findMon(G.synthSelect[0]).level + findMon(G.synthSelect[1]).level)/4));
+    html += '<h2 class="section">うまれるモンスター</h2>'+
+      '<div class="monCard" style="width:120px;margin:0 auto;">'+
+      '<div class="monIcon">'+monsterSvg(previewId)+'</div><div class="nm">'+SPECIES[previewId].name+'</div><div class="lv">Lv'+newLevel+'</div></div>'+
+      '<div class="navRow"><div class="btn primary" data-action="do-synth" data-result="'+previewId+'" data-newlevel="'+newLevel+'">✨ ごうせいする</div></div>';
+  } else if(G.synthSelect.length===2){
+    html += '<div style="text-align:center;margin-top:10px;">この組み合わせは まだないみたい…</div>';
+  }
+  html += '</div>';
+  html += '<div class="navRow"><div class="btn" data-action="back-home">もどる</div></div>';
+  app.innerHTML = html;
+}
+
+/* ============================== ONLINE SCREENS ============================== */
+function renderOnlineMenu(){
+  var html = '<h1 class="title">🌐 オンラインたいせん</h1>';
+  if(!isFirebaseConfigured()){
+    html += '<div class="card">オンラインたいせんを つかうには、さきに Firebase の せっていが ひつようだよ。READMEを みてね。</div>';
+  } else {
+    html += '<div class="card">'+
+      '<div class="navRow"><div class="btn primary wide" data-action="online-create">🏠 へやを つくる</div></div>'+
+      '<h2 class="section">コードで さんかする</h2>'+
+      '<input id="joinCodeInput" maxlength="4" placeholder="ABCD" autocapitalize="characters" '+
+      'style="width:100%;font-size:22px;text-align:center;letter-spacing:6px;padding:10px;border-radius:12px;border:3px solid var(--accent);text-transform:uppercase;box-sizing:border-box;">'+
+      '<div class="navRow"><div class="btn primary wide" data-action="online-join">🔑 さんかする</div></div>'+
+    '</div>';
+  }
+  html += '<div class="navRow"><div class="btn" data-action="back-home">もどる</div></div>';
+  app.innerHTML = html;
+}
+
+function renderOnlineBattle(){
+  var on = G.online;
+  if(!on){ G.screen='home'; render(); return; }
+  if(!on.hostTeam || !on.guestTeam){
+    app.innerHTML = '<h1 class="title">🌐 たいせん</h1><div class="card" style="text-align:center;">'+
+      'あいてを まっているよ…<br><br>へやコード<br><span style="font-size:32px;font-weight:900;letter-spacing:6px;">'+on.code+'</span>'+
+      '<br><br>このコードを ともだちに おしえてね</div>'+
+      '<div class="navRow"><div class="btn" data-action="online-leave">やめる</div></div>';
+    return;
+  }
+  var viewerIsA = on.role === 'host';
+  var myTeam = viewerIsA ? on.hostTeam : on.guestTeam;
+  var oppTeam = viewerIsA ? on.guestTeam : on.hostTeam;
+  var my = myTeam.monsters[myTeam.activeIndex];
+  var opp = oppTeam.monsters[oppTeam.activeIndex];
+  var spMy = SPECIES[my.speciesId], spOpp = SPECIES[opp.speciesId];
+
+  var html = '<h1 class="title">🌐 オンラインたいせん</h1>';
+  html += '<div class="battleField">';
+  html += '<div class="battleSide enemy"><div class="monWrap">'+monsterSvg(opp.speciesId)+'</div><div class="info"><b>'+spOpp.name+'</b> Lv'+opp.level+' '+famTagsHtml(spOpp)+renderHpBar(opp)+'</div></div>';
+  html += '<div class="battleSide"><div class="monWrap">'+monsterSvg(my.speciesId)+'</div><div class="info"><b>'+spMy.name+'</b> Lv'+my.level+' '+famTagsHtml(spMy)+renderHpBar(my)+'</div></div>';
+  html += '</div>';
+  html += '<div id="battleLog">'+on.log.slice(-4).map(function(l){return '<div>'+l+'</div>';}).join('')+'</div>';
+
+  var myNeedsReplacement = my.currentHp<=0 && aliveIndices(myTeam).length>0;
+
+  if(on.ended){
+    html += '<div class="navRow"><div class="btn primary" data-action="online-leave">ホームへ もどる</div></div>';
+  } else if(on.mySubmittedTurn === on.resolvedTurn){
+    html += '<div class="card" style="text-align:center;">あいての てを まっているよ…</div>';
+  } else if(myNeedsReplacement){
+    html += '<h2 class="section">こうたいする モンスターを えらんでね</h2><div class="grid">';
+    myTeam.monsters.forEach(function(m,i){
+      if(i===myTeam.activeIndex) return;
+      var disabled = m.currentHp<=0;
+      html += '<div class="monCard'+(disabled?' disabled':'')+'" data-action="online-switch" data-idx="'+i+'">'+
+        '<div class="monIcon">'+monsterSvg(m.speciesId)+'</div><div class="nm">'+SPECIES[m.speciesId].name+'</div><div class="lv">HP '+m.currentHp+'/'+m.maxHp+'</div></div>';
+    });
+    html += '</div>';
+  } else {
+    html += '<div class="actionGrid">'+
+      '<div class="btn primary" data-action="online-attack">🗡️ たたかう</div>'+
+      '<div class="btn primary'+(my.skillUses<=0?' disabled':'')+'" data-action="online-skill">✨ '+spMy.skill.name+'（'+my.skillUses+'）</div>'+
+      '<div class="btn" data-action="online-show-switch">🔄 こうたい</div>'+
+      '<div class="btn" data-action="online-leave">🏳️ ギブアップ</div>'+
+    '</div>';
+    if(on.showSwitchMenu){
+      html += '<h2 class="section">こうたいさき</h2><div class="grid">';
+      myTeam.monsters.forEach(function(m,i){
+        if(i===myTeam.activeIndex) return;
+        var disabled = m.currentHp<=0;
+        html += '<div class="monCard'+(disabled?' disabled':'')+'" data-action="online-switch" data-idx="'+i+'">'+
+          '<div class="monIcon">'+monsterSvg(m.speciesId)+'</div><div class="nm">'+SPECIES[m.speciesId].name+'</div><div class="lv">HP '+m.currentHp+'/'+m.maxHp+'</div></div>';
+      });
+      html += '</div>';
+    }
+  }
+  app.innerHTML = html;
+}
+
+/* ============================== EVENT HANDLING ============================== */
+app.addEventListener('click', function(e){
+  var el = e.target.closest('[data-action]');
+  if(!el) return;
+  var action = el.getAttribute('data-action');
+  if(!action) return;
+  resumeAudio();
+  sfxTap();
+
+  if(action==='pick-starter'){
+    var speciesId = el.getAttribute('data-species');
+    var inst = addMonster(speciesId, 5);
+    G.party = [inst.uid];
+    G.starterPicked = true;
+    save();
+    G.screen = 'home';
+    toast(SPECIES[speciesId].name+'を なかまにした！');
+    render();
+  } else if(action==='go-wild'){ G.screen='wild'; render(); }
+  else if(action==='go-synth'){ G.synthSelect=[]; G.screen='synth'; render(); }
+  else if(action==='go-party'){ G.screen='party'; render(); }
+  else if(action==='go-online'){
+    if(G.party.length!==3){ toast('パーティを3匹にえらんでね'); G.screen='party'; }
+    else { G.screen='onlineMenu'; }
+    render();
+  }
+  else if(action==='back-home'){ G.screen='home'; render(); }
+  else if(action==='online-create'){ createOnlineRoom(); }
+  else if(action==='online-join'){
+    var codeInput = document.getElementById('joinCodeInput');
+    var codeVal = codeInput ? codeInput.value.trim() : '';
+    if(codeVal.length!==4){ toast('4もじの コードを いれてね'); return; }
+    joinOnlineRoom(codeVal);
+  }
+  else if(action==='online-leave'){ leaveOnline(); }
+  else if(action==='online-attack'){ submitOnlineAction({type:'attack'}); }
+  else if(action==='online-skill'){ if(el.classList.contains('disabled')) return; submitOnlineAction({type:'skill'}); }
+  else if(action==='online-show-switch'){ G.online.showSwitchMenu = !G.online.showSwitchMenu; render(); }
+  else if(action==='online-switch'){
+    if(el.classList.contains('disabled')) return;
+    var oIdx = parseInt(el.getAttribute('data-idx'),10);
+    submitOnlineAction({type:'switch', toIndex:oIdx});
+  }
+  else if(action==='toggle-party'){
+    var uid = el.getAttribute('data-uid');
+    var idx = G.party.indexOf(uid);
+    if(idx!==-1){ G.party.splice(idx,1); }
+    else if(G.party.length<3){ G.party.push(uid); }
+    else { toast('パーティは さいだい3匹まで！'); }
+    save();
+    render();
+  } else if(action==='toggle-synth'){
+    var uid2 = el.getAttribute('data-uid');
+    var idx2 = G.synthSelect.indexOf(uid2);
+    if(idx2!==-1){ G.synthSelect.splice(idx2,1); }
+    else if(G.synthSelect.length<2){ G.synthSelect.push(uid2); }
+    render();
+  } else if(action==='do-synth'){
+    var resultId = el.getAttribute('data-result');
+    var newLevel = parseInt(el.getAttribute('data-newlevel'),10);
+    var consumedUids = G.synthSelect.slice();
+    G.box = boxWithout(consumedUids);
+    G.party = G.party.filter(function(uid){ return consumedUids.indexOf(uid)===-1; });
+    var newInst = addMonster(resultId, newLevel);
+    G.synthSelect = [];
+    save();
+    toast(SPECIES[resultId].name+'が うまれた！');
+    G.screen='home';
+    render();
+  } else if(action==='do-attack'){ playerAct({type:'attack'}); }
+  else if(action==='do-skill'){ if(el.classList.contains('disabled')) return; playerAct({type:'skill'}); }
+  else if(action==='show-switch'){ G.battle.showSwitchMenu = !G.battle.showSwitchMenu; render(); }
+  else if(action==='do-switch'){
+    var idx3 = parseInt(el.getAttribute('data-idx'),10);
+    if(el.classList.contains('disabled')) return;
+    if(G.battle.needsReplacementA){
+      G.battle.teamA.activeIndex = idx3;
+      G.battle.needsReplacementA = false;
+      render();
+    } else {
+      playerAct({type:'switch', toIndex:idx3});
+    }
+  } else if(action==='battle-flee'){
+    G.battle = null; G.screen='home'; render();
+  } else if(action==='battle-end-ok'){
+    G.battle = null; G.screen='home'; render();
+  }
+});
+
+/* ============================== BOOT ============================== */
+function boot(){
+  var hasSave = load();
+  G.screen = hasSave ? 'home' : 'title';
+  render();
+}
+boot();
+</script>
+</body>
+</html>
