@@ -1259,10 +1259,26 @@ function renderSynth(){
     previewId = a && b ? synthesize(a.speciesId, b.speciesId) : null;
   }
   if(previewId){
-    var newLevel = Math.max(1, Math.round((findMon(G.synthSelect[0]).level + findMon(G.synthSelect[1]).level)/4));
-    html += '<h2 class="section">うまれるモンスター</h2>'+
-      '<div class="monCard" style="width:120px;margin:0 auto;">'+
-      '<div class="monIcon">'+monsterSvg(previewId)+'</div><div class="nm">'+SPECIES[previewId].name+'</div><div class="lv">Lv'+newLevel+'</div></div>';
+    var monA = findMon(G.synthSelect[0]), monB = findMon(G.synthSelect[1]);
+    var newLevel = Math.max(1, Math.round((monA.level + monB.level)/4));
+    var resultStats = allStatsFromBonus(previewId, defaultStatBonus(newLevel));
+    function synthColumnHtml(speciesId, level, stats, big){
+      return '<div style="text-align:center;">'+
+        '<div class="monIcon" style="width:'+(big?'88px':'60px')+';margin:0 auto;">'+monsterSvg(speciesId)+'</div>'+
+        '<div style="font-size:11px;font-weight:bold;margin-top:2px;">'+SPECIES[speciesId].name+' Lv'+level+'</div>'+
+        '<div style="font-size:10px;line-height:1.5;color:#5a4632;">'+
+          STAT_KEYS.map(function(k){ return STAT_LABEL[k]+' '+stats[k]; }).join('<br>')+
+        '</div>'+
+      '</div>';
+    }
+    html += '<h2 class="section">うまれるモンスター</h2>';
+    html += '<div style="display:flex;justify-content:center;align-items:center;gap:6px;flex-wrap:wrap;">'+
+      synthColumnHtml(monA.speciesId, monA.level, allStatsFromBonus(monA.speciesId, monA.statBonus))+
+      '<div style="font-size:18px;">➕</div>'+
+      synthColumnHtml(monB.speciesId, monB.level, allStatsFromBonus(monB.speciesId, monB.statBonus))+
+      '<div style="font-size:18px;">➡️</div>'+
+      synthColumnHtml(previewId, newLevel, resultStats, true)+
+    '</div>';
     if(G.synthConfirming){
       html += '<p style="text-align:center;font-size:13px;color:#c0392b;font-weight:bold;margin:10px 0 6px;">もとの2匹は いなくなるよ。いい？</p>'+
         '<div class="navRow">'+
