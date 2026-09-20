@@ -3,6 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<!-- Marks this page as installable as a standalone home-screen app on iOS. Without this,
+     "Add to Home Screen" just creates a bookmark that reopens in whichever Safari mode
+     (including Private Browsing) was active when it was added, which uses Safari's
+     ephemeral private-mode storage and loses all local save data on close. With it, the
+     icon launches its own persistent, app-like storage container, independent of Safari's
+     browsing mode entirely. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="モンスターアリーナ">
 <title>モンスターアリーナ</title>
 <style>
   :root{
