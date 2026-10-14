@@ -98,3 +98,53 @@ by code, with no sign-in on either side.
   save from then on is silently pushed to that code too. Bookmark the
   page at that point — reopening that URL (even in a fresh private tab)
   reads the code back out and restores your data automatically.
+
+## Checklist for the next single-file HTML mini-game
+
+Things Monster Arena got wrong the first time around, worth doing from the
+start next time instead of after a player reports lost saves or "nothing
+happens" buttons:
+
+1. **Make it home-screen installable from day one.** Add these to `<head>`
+   before the game ships, not after:
+   ```html
+   <meta name="apple-mobile-web-app-capable" content="yes">
+   <meta name="mobile-web-app-capable" content="yes">
+   <meta name="apple-mobile-web-app-status-bar-style" content="default">
+   <meta name="apple-mobile-web-app-title" content="...">
+   <link rel="apple-touch-icon" href="data:image/png;base64,...">
+   ```
+   Without the `capable` tag, iOS's "Add to Home Screen" just creates a
+   bookmark that reopens in whatever Safari mode (Private Browsing
+   included) was active when it was added — and Private Browsing wipes
+   `localStorage` on close no matter how carefully the save code is
+   written. With it, the icon launches as a standalone app with its own
+   persistent storage, independent of Safari's mode entirely.
+2. **Host on GitHub Pages, not htmlpreview.github.io.** The latter doesn't
+   reliably execute the page's own `<script src="...">` tags, which
+   silently breaks anything depending on an external SDK (Firebase, etc.)
+   with zero visible error — just a button that does nothing. GitHub
+   Pages serves the file as a normal static site with none of that risk,
+   and gives a stable, bookmarkable URL.
+3. **If an external SDK is load-bearing, don't only trust the static
+   `<script src>` tag.** Check `typeof <global> !== 'undefined'` first
+   (the fast path for normal hosting), and if it's missing, inject the
+   `<script>` yourself via `document.createElement` and await its
+   `onload` before using it. A dynamically created script element always
+   fetches and executes, regardless of how the surrounding page was
+   assembled or served.
+4. **Never pass an object with an explicit `undefined` property into
+   Firebase's `.set()`.** The real SDK throws synchronously on this (a
+   hand-rolled test mock won't catch it, since it just serializes), and
+   with no `.catch()` in place that throw vanishes as a silent unhandled
+   rejection — exactly the "nothing happens" symptom. Normalize optional
+   fields (`value == null ? default : value`) before writing, and always
+   attach a `.catch()` so a future bug like this surfaces as a message
+   instead of disappearing.
+5. **Give a login-free cloud save a URL-embedded fallback.** A short code
+   saved to a small backend path works without accounts, but the code
+   itself has to survive a browser reset too, not just the save data.
+   Once the player touches cloud save, push the code into the URL itself
+   (`history.replaceState`) and keep silently syncing future saves to it.
+   Bookmarking that URL restores everything on reopen — useful for anyone
+   who can't or won't use Home Screen installation.
