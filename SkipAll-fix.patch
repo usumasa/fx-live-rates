@@ -1,0 +1,49 @@
+--- orig/TrackClubManager/Assets/_Game/UI/Screens/ClubScreenController.AllResults.cs	2026-11-01 11:26:24.000000000 +0000
++++ handoff/TrackClubManager/Assets/_Game/UI/Screens/ClubScreenController.AllResults.cs	2026-11-02 14:44:48.929236126 +0000
+@@ -25,7 +25,7 @@
+             var card = OpenDialog("SkipAllRacesProgress", from.Name + " / 全レースをスキップ", 760, 320);
+             var progress = Label(card, "SkipAllRacesProgressText", "結果を計算します。各レース終了時にオートセーブします。", 22, TextAnchor.MiddleCenter);
+             DetailPlace(progress.rectTransform, 24, 92, 712, 148);
+-            string failure = null;
++            string failure = null, saveFailure = null;
+             try
+             {
+                 yield return null;
+@@ -38,10 +38,12 @@
+                         session.RunCompetition(next.CompetitionId, next.Year, sprintRules);
+                         completed++;
+                         pendingLoad = null;
+-                        saves.Save(session.State, SaveSlot.Auto);
+                     }
+-                    catch (Exception error) { failure = "計算または保存で停止しました。進行はメモリに残っています: " + error.Message; break; }
+-                    progress.text = RaceEvents.Name(next.Event) + " / " + completed + " / " + total + "レース完了\nオートセーブ済み";
++                    catch (Exception error) { failure = "計算で停止しました。ここまでの進行はメモリに残っています: " + error.Message; Debug.LogWarning(error.ToString()); break; }
++                    // A failed autosave (e.g. mobile storage) must not stop the remaining events.
++                    try { saves.Save(session.State, SaveSlot.Auto); }
++                    catch (Exception error) { saveFailure = "オートセーブ失敗。進行・結果はメモリに残っています。手動保存してください: " + error.Message; Debug.LogWarning(error.Message); }
++                    progress.text = RaceEvents.Name(next.Event) + " / " + completed + " / " + total + "レース完了" + (saveFailure == null ? "\nオートセーブ済み" : "\nオートセーブ失敗（計算は続行）");
+                     yield return null;
+                 }
+             }
+@@ -49,9 +51,10 @@
+             RefreshRosterFatigue(); RefreshUpcomingCompetition(); RefreshWeekButton();
+             var state = session.State;
+             weekSummary.text = string.Format("{0}     所属 {1}人 / 定員 {2}人     {3}", GameDateFormat.SeasonDate(state.Date.Year, state.Date.Week), state.Athletes.Count, state.PlayerClub.Capacity, ClubRankSummary());
+-            trainingStatus.text = failure ?? (completed + "レースを計算しました。記録・経験・疲労を反映し、オートセーブ済みです。");
++            string notice = failure ?? saveFailure;
++            trainingStatus.text = notice ?? (completed + "レースを計算しました。記録・経験・疲労を反映し、オートセーブ済みです。");
+             NoteRankChange();
+-            OpenAllMeetResults(from, null, failure);
++            OpenAllMeetResults(from, null, notice);
+         }
+ 
+         private void OpenAllMeetResults(CompetitionRegistration from, CompetitionRegistration selected = null, string message = null)
+@@ -91,7 +94,7 @@
+                 });
+             }
+             BuildMeetResultTable(card, views, width, height, 136, true, "この種目に自クラブの結果はありません。");
+-            if (!string.IsNullOrEmpty(message)) card.Find("AllResultsNotice").GetComponent<Text>().text = message;
++            if (!string.IsNullOrEmpty(message)) MeetText(card, "AllResultsNotice", message, 20, height - 94, width - 40, 24, 16);
+             float bw = (width - 64) / 4, y = height - 66;
+             var chosen = selected;
+             MeetButton(card, "AllResultsOwn", "自クラブの成績", 20, y, bw, 54, () => OpenOwnResults(chosen));
